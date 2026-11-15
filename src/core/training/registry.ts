@@ -1,0 +1,142 @@
+import type { TrainingDefinition, Config } from "./types";
+import { NbackGame } from "../../features/nback";
+import { RunningSpanGame } from "../../features/running-span";
+import { ComplexSpanGame } from "../../features/complex-span";
+import { ReasoningGame } from "../../features/reasoning";
+import { PalaceGame } from "../../features/memory-palace";
+import { RepetitionGame } from "../../features/spaced-repetition";
+const base: Config = {
+  level: 1,
+  interval: 2000,
+  rounds: 4,
+  variant: "default",
+  mode: "training",
+  auto: true,
+  locations: ["현관", "거실", "주방", "침실", "욕실", "베란다", "책상", "정원"],
+};
+export const registry: TrainingDefinition[] = [
+  {
+    id: "nback",
+    name: "N-back",
+    english: "N-BACK",
+    category: "작업기억",
+    description: "몇 단계 전의 자극을 기억하고, 지금과 비교해요.",
+    rule: "현재 자극이 N개 전과 같을 때만 ‘같아요’를 누르세요. 다르면 기다립니다. 처음 N개는 기억만 하고 채점하지 않습니다.",
+    example: "1-back: A → B → B. 세 번째 B에서 ‘같아요’를 눌러요.",
+    accent: "mint",
+    icon: "grid",
+    minutes: "1–3분",
+    maxLevel: 4,
+    defaultConfig: { ...base, rounds: 20, variant: "position" },
+    variants: [
+      { value: "position", label: "위치" },
+      { value: "letter", label: "문자" },
+    ],
+    component: NbackGame,
+    metricsLabel: "정확도",
+    limitation:
+      "과제에 익숙해지는 것과 일반 지능 향상은 다릅니다. 연구의 전체 프로토콜을 재현한 검사가 아닙니다.",
+  },
+  {
+    id: "running-span",
+    name: "Running Span",
+    english: "RUNNING SPAN",
+    category: "작업기억",
+    description: "이어지는 숫자 속에서 마지막 숫자들을 기억해요.",
+    rule: "숫자가 하나씩 나타납니다. 언제 끝날지는 알려주지 않습니다. 종료되면 마지막 K개 숫자를 나온 순서대로 입력하세요.",
+    example: "마지막 3개 기억: 8 → 4 → 1 → 7 → 3이면 답은 1, 7, 3입니다.",
+    accent: "blue",
+    icon: "list",
+    minutes: "2–4분",
+    maxLevel: 5,
+    defaultConfig: { ...base },
+    variants: [],
+    component: RunningSpanGame,
+    metricsLabel: "순서 정확도",
+    limitation: "기억 항목 수와 제시 속도가 같은 세션끼리 비교하세요.",
+  },
+  {
+    id: "complex-span",
+    name: "Complex Span",
+    english: "COMPLEX SPAN",
+    category: "주의 조절",
+    description: "문자를 기억하는 동안 간단한 계산도 해결해요.",
+    rule: "문자를 기억하고 이어지는 계산이 참인지 거짓인지 판단하세요. 정식 모드의 계산 제한은 5초입니다. 마지막에 문자만 순서대로 회상합니다.",
+    example: "A 기억 → 2 + 3 = 5 (참) → B 기억 → 4 + 2 = 7 (거짓) → A, B 회상.",
+    accent: "peach",
+    icon: "layers",
+    minutes: "1–3분",
+    maxLevel: 5,
+    defaultConfig: { ...base, rounds: 1 },
+    variants: [],
+    component: ComplexSpanGame,
+    metricsLabel: "기억 정확도",
+    limitation:
+      "계산과 기억을 따로 기록합니다. 계산을 무시하면 자동 난이도가 올라가지 않습니다.",
+  },
+  {
+    id: "reasoning",
+    name: "조건 누적 추론",
+    english: "RELATIONAL REASONING",
+    category: "논리 추론",
+    description: "흩어진 조건을 연결해 하나의 순서를 찾아요.",
+    rule: "각 조건을 읽고 왼쪽부터 이름을 선택하세요. 모든 조건을 만족하는 정답은 하나입니다. 이름 선택과 ‘하나 지우기’만으로 풀 수 있습니다.",
+    example: "가람은 나래 왼쪽, 나래는 다온 왼쪽 → 가람, 나래, 다온.",
+    accent: "lavender",
+    icon: "route",
+    minutes: "3–5분",
+    maxLevel: 3,
+    defaultConfig: { ...base, rounds: 3, variant: "visible" },
+    variants: [
+      { value: "visible", label: "조건 계속 보기" },
+      { value: "memory", label: "15초 후 조건 숨기기" },
+    ],
+    component: ReasoningGame,
+    metricsLabel: "문제 정확도",
+    limitation:
+      "일반 추론과 기억 모드는 서로 다른 조건입니다. 현재 버전은 순서 관계 문제를 제공합니다.",
+  },
+  {
+    id: "memory-palace",
+    name: "기억의 궁전",
+    english: "MEMORY PALACE",
+    category: "기억 전략",
+    description: "익숙한 장소에 단어를 놓고, 머릿속으로 걸어봐요.",
+    rule: "장소마다 나타나는 단어를 생생한 이미지로 연결하세요. 정식 모드에서는 설정한 시간마다 자동으로 넘어갑니다. 모든 장소를 살펴본 뒤 장소 순서대로 단어를 회상합니다. 설정에서 나만의 경로를 바꿀 수 있습니다.",
+    example: "현관에 커다란 사과, 거실에 날아다니는 우산을 상상해요.",
+    accent: "rose",
+    icon: "palace",
+    minutes: "2–4분",
+    maxLevel: 6,
+    defaultConfig: { ...base, interval: 5000, rounds: 1, variant: "immediate" },
+    variants: [
+      { value: "immediate", label: "즉시 회상" },
+      { value: "delayed", label: "30초 지연 회상" },
+    ],
+    component: PalaceGame,
+    metricsLabel: "단어 회상률",
+    limitation:
+      "장소 연상 전략을 연습합니다. 30초 지연은 이 앱의 운영 설정이며 장기 기억 검사가 아닙니다.",
+  },
+  {
+    id: "spaced-repetition",
+    name: "인출 연습",
+    english: "SPACED REPETITION",
+    category: "기억 전략",
+    description: "답을 보기 전에 떠올리고, 알맞은 간격으로 복습해요.",
+    rule: "내가 만든 카드의 질문을 보고 먼저 답을 떠올리세요. 정답을 확인한 뒤 기억 정도를 평가하면 다음 복습일이 정해집니다.",
+    example:
+      "기억함: 1일 → 3일 → 7일 → 14일로 간격을 늘려요. 기억 못함·어려움은 학습 단계를 초기화하고 다음 날 다시 만나요.",
+    accent: "sand",
+    icon: "cards",
+    minutes: "자유롭게",
+    maxLevel: 1,
+    defaultConfig: { ...base, rounds: 20, auto: false },
+    variants: [],
+    component: RepetitionGame,
+    metricsLabel: "기억함 비율",
+    limitation:
+      "본인의 기억 평가이며 객관적인 정답률이 아닙니다. 1·3·7일은 편의를 위한 초기 간격입니다.",
+  },
+];
+export const getTraining = (id: string) => registry.find((t) => t.id === id);

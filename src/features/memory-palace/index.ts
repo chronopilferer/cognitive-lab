@@ -1,0 +1,1 @@
+export { PalaceGame } from "./Game";
