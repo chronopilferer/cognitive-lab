@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import {
   ExternalLink,
   BookOpen,
@@ -6,6 +7,25 @@ import {
   Lightbulb,
 } from "lucide-react";
 const sources = [
+  {
+    title: "Yang et al. (2021) · 메타분석",
+    subtitle: "Testing (quizzing) boosts classroom learning",
+    url: "https://pubmed.ncbi.nlm.nih.gov/33683913/",
+    note: "교실 연구 222건, 학생 48,478명의 결과를 통합했습니다. 학습한 자료의 인출 연습을 지지하지만 효과는 피드백·문제 형식 등 조건에 따라 다릅니다. 이 앱의 효과를 검증한 연구는 아닙니다.",
+  },
+  {
+    title: "Mawson & Kang (2025) · 메타분석",
+    subtitle: "The Distributed Practice Effect on Classroom Learning",
+    url: "https://pubmed.ncbi.nlm.nih.gov/40564553/",
+    note: "교실 연구 22편에서 몰아서 공부하기보다 나누어 공부하기의 기억 유지 이점을 검토했습니다. 사람마다 최적인 간격이나 이 앱의 1·3·7일 규칙을 입증한 것은 아닙니다.",
+  },
+  {
+    title: "Wagner et al. (2021) · 실험 연구",
+    subtitle:
+      "Durable memories and efficient neural coding through mnemonic training using the method of loci",
+    url: "https://pubmed.ncbi.nlm.nih.gov/33658191/",
+    note: "장소법 훈련 후 단어 기억 유지의 개선을 관찰했습니다. 소규모 집단 연구이며 이 앱의 짧은 즉시·30초 회상과 연구 프로토콜은 다릅니다. 전반적인 기억 용량 증가를 보장하지 않습니다.",
+  },
   {
     title: "Melby-Lervåg, Redick & Hulme (2016)",
     subtitle:
@@ -78,68 +98,202 @@ export function Research() {
             <h3>{title}</h3>
             <p>{body}</p>
           </section>
-        ))}
-      </div>
-      <section className="panel">
-        <h2>지속 가능한 사용법</h2>
-        <ul className="guide-list">
-          <li>
-            정해진 종료일 없이, 필요한 훈련을 원하는 만큼 선택하세요. 피로하면
-            쉬어도 기록은 유지됩니다.
-          </li>
-          <li>
-            처음에는 연습 모드로 규칙을 익히고, 정확히 이해한 후 정식 훈련을
-            진행하세요.
-          </li>
-          <li>
-            자동 난이도는 같은 조건에서 두 번의 수행을 보고 조절합니다. 80%·60%
-            기준은 이 앱의 운영 규칙입니다.
-          </li>
-          <li>
-            N-back은 적중률과 오경보율, Complex Span은 계산과 기억을 함께
-            고려합니다.
-          </li>
-          <li>
-            탭 전환이나 일시정지는 기억·반응 측정 조건을 바꿉니다. 중단 기록으로
-            남기고 새로운 세션으로 시작합니다.
-          </li>
-          <li>
-            연구 과제의 원리를 바탕으로 독립 구현했습니다. 실험실 장비·원본
-            프로토콜·표준화 검사와 동등하지 않습니다.
-          </li>
-          <li>
-            시각 자극 과제는 시각적 제시가 규칙의 일부입니다. 보조기술을 사용한
-            결과는 다른 조건과 동일하게 해석하지 마세요.
-          </li>
-        </ul>
-      </section>
-      <section>
-        <div className="section-title">
-          <h2>
-            <BookOpen size={22} /> 확인한 참고 문헌
-          </h2>
-        </div>
-        {sources.map((s) => (
-          <a
-            className="panel source-card"
-            href={s.url}
-            target="_blank"
-            rel="noreferrer"
-            key={s.url}
-          >
+       …5090 tokens truncated…              >
+                    {(t.id === "nback" || t.id === "spaced-repetition"
+                      ? [10, 20, 30]
+                      : [1, 3, 4, 5]
+                    ).map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {t.id === "memory-palace" && (
+                <label>
+                  나의 장소 경로 (쉼표로 구분)
+                  <textarea
+                    value={config.locations.join(", ")}
+                    onChange={(e) =>
+                      change({
+                        locations: e.target.value
+                          .split(",")
+                          .map((s) => s.trim())
+                          .slice(0, 12),
+                      })
+                    }
+                  />
+                  <small>
+                    현재 난이도에 {config.level + 2}개 이상 필요합니다.
+                  </small>
+                </label>
+              )}
+              {!locationValid && (
+                <p className="error">
+                  장소를 더 입력하거나 난이도를 낮춰주세요.
+                </p>
+              )}
+              <button
+                className="primary answer-wide"
+                disabled={busy || !canStart || !locationValid}
+                onClick={() => void start("training")}
+              >
+                <Play size={17} />
+                정식 훈련 시작
+              </button>
+              <button
+                className="secondary answer-wide"
+                disabled={
+                  busy ||
+                  !locationValid ||
+                  (t.id === "spaced-repetition" && !data.cards.length)
+                }
+                onClick={() => void start("practice")}
+              >
+                먼저 연습해 보기
+              </button>
+              <p className="hint">
+                연습은 기록과 난이도 조절에 반영하지 않아요.
+                <br />
+                중단·탭 전환 시 새 세션으로 다시 시작합니다.
+              </p>
+              {!canStart && (
+                <p className="hint">
+                  {data.cards.length
+                    ? "오늘 예정된 복습이 없습니다. 먼저 연습해 보기로 전체 카드를 복습하거나 아래에서 카드를 추가하세요."
+                    : "아직 학습 카드가 없습니다. 아래에서 한 장씩 만들거나 여러 카드를 한 번에 붙여넣으세요."}
+                </p>
+              )}
+            </section>
+          </div>
+          {t.id === "spaced-repetition" && <CardManager />}
+        </>
+      )}
+      {phase === "running" && session && (
+        <>
+          <header className="game-header">
+            <span className="brand-symbol">
+              <TrainingIcon name={t.icon} />
+            </span>
             <div>
-              <h3>{s.title}</h3>
-              <p className="source-subtitle">{s.subtitle}</p>
-              <p>{s.note}</p>
+              <h1>{t.name}</h1>
+              <span>
+                {session.config.mode === "practice"
+                  ? "연습 모드 · 기록되지 않아요"
+                  : `정식 훈련 · Level ${session.config.level}`}
+              </span>
             </div>
-            <ExternalLink size={18} />
-          </a>
-        ))}
-      </section>
-      <p className="hint">
-        문헌 확인: 2026-11-15 · 연구의 효과를 개인의 예상 향상률로 환산하지
-        않습니다.
-      </p>
+            <button
+              className="secondary"
+              onClick={() => {
+                completeLock.current = true;
+                setReason(
+                  "일시정지한 세션은 비교 기록에서 제외됩니다. 기억 과제의 조건을 유지하기 위해 새로 시작해 주세요.",
+                );
+                setPhase("stopped");
+              }}
+            >
+              <Pause size={16} />
+              일시정지
+            </button>
+          </header>
+          <section className="game-panel">
+            <Game
+              key={session.id}
+              config={session.config}
+              onComplete={(m) => void finish(m)}
+            />
+          </section>
+          <p className="focus-note">지금은 이 순간에만 집중해 보세요.</p>
+        </>
+      )}
+      {phase === "stopped" && (
+        <section className="panel stopped-panel">
+          <Pause size={40} />
+          <h1>잠시 쉬어가요</h1>
+          <p>{reason}</p>
+          <div className="button-row">
+            <button
+              className="primary"
+              onClick={() => void start(config.mode)}
+              disabled={busy}
+            >
+              <RotateCcw size={17} />새 세션 시작
+            </button>
+            <button className="secondary" onClick={() => setPhase("setup")}>
+              설정으로 돌아가기
+            </button>
+          </div>
+        </section>
+      )}
+      {phase === "result" && currentResult?.metrics && (
+        <section className="panel result-panel">
+          <CheckCircle2 size={42} />
+          <span className="eyebrow">SESSION COMPLETE</span>
+          <h1>한 번의 연습이 쌓였어요.</h1>
+          <p>
+            {t.name} · Level {currentResult.config.level} ·{" "}
+            {Math.round(currentResult.durationSeconds)}초
+          </p>
+          <div className="result-score">
+            {pct(accuracy(currentResult.metrics))}
+            <span>{t.metricsLabel}</span>
+          </div>
+          <MetricDetails metrics={currentResult.metrics} />
+          <div className="result-note">
+            {previous?.metrics
+              ? `이전 동일 조건: ${pct(accuracy(previous.metrics))} → 이번 ${pct(accuracy(currentResult.metrics))}`
+              : "같은 조건·입력 방식의 이전 정식 기록이 아직 없습니다."}
+          </div>
+          <p>
+            {currentResult.config.mode === "practice"
+              ? "연습을 마쳤습니다. 결과는 저장하지 않았습니다."
+              : saved
+                ? "기록이 이 브라우저에 저장되었습니다."
+                : "기록을 아직 저장하지 못했습니다."}
+          </p>
+          {!saved && currentResult.config.mode === "training" && (
+            <button
+              className="secondary"
+              onClick={async () =>
+                setSaved(await act(() => repository.saveSession(currentResult)))
+              }
+            >
+              저장 다시 시도
+            </button>
+          )}
+          {adjustment && t.maxLevel > 1 && (
+            <div className="quiet-note">
+              다음 난이도 Level {adjustment.level}
+              <p>{adjustment.reason}</p>
+            </div>
+          )}
+          <div className="button-row wrap">
+            <button
+              className="primary"
+              onClick={() => void start(currentResult.config.mode)}
+              disabled={busy}
+            >
+              한 번 더 훈련
+            </button>
+            {currentResult.config.mode === "practice" && (
+              <button
+                className="secondary"
+                onClick={() => void start("training")}
+              >
+                정식 훈련 시작
+              </button>
+            )}
+            <button className="secondary" onClick={() => setPhase("setup")}>
+              설정 변경
+            </button>
+            <Link className="ghost" to="/training">
+              다른 훈련 선택
+            </Link>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

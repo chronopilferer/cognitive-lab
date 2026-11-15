@@ -2326,3 +2326,82 @@ kbd {
 .recall-review strong {
   color: var(--primary);
 }
+
+/* Research guidance and practical retrieval workflows. */
+.bulk-cards {
+  margin: 20px 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.bulk-cards summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 28px;
+}
+.bulk-cards textarea,
+.written-recall textarea {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
+.bulk-preview {
+  margin-top: 18px;
+  overflow-wrap: anywhere;
+}
+.bulk-preview ul {
+  padding-left: 20px;
+  max-height: 260px;
+  overflow: auto;
+}
+.bulk-preview li {
+  margin: 12px 0;
+}
+.card-filters {
+  margin-top: 26px;
+  display: grid;
+  gap: 12px;
+}
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.check-label input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.written-recall {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 20px 0;
+}
+.written-recall textarea {
+  min-height: 110px;
+}
+.written-recall small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+}
+.evidence-row {
+  border-top: 1px solid var(--line);
+  margin-top: 22px;
+  padding-top: 22px;
+}
+.evidence-row p {
+  margin-top: 10px;
+}
+@media (max-width: 700px) {
+  .bulk-cards {
+    padding: 14px;
+  }
+  .bulk-cards textarea,
+  .card-filters input[type="search"],
+  .written-recall textarea {
+    font-size: 16px;
+  }
+}

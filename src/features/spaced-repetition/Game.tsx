@@ -17,6 +17,8 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
   );
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  const [written, setWritten] = useState("");
+  const [writeMode, setWriteMode] = useState(false);
   const [busy, setBusy] = useState(false);
   const remembered = useRef(0);
   const locked = useRef(false);
@@ -44,6 +46,7 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
     }
     setIndex((i) => i + 1);
     setRevealed(false);
+    setWritten("");
     locked.current = false;
     setBusy(false);
   }
@@ -67,9 +70,32 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
           {c.mode === "practice" ? "연습 · 복습 일정 변경 없음" : "인출 연습"}
         </span>
       </div>
+      {!revealed && (
+        <label className="check-label">
+          <input
+            type="checkbox"
+            checked={writeMode}
+            onChange={(e) => setWriteMode(e.target.checked)}
+          />
+          답을 직접 적어 보기
+        </label>
+      )}
       <div className="flashcard">
         <span className="eyebrow">먼저 스스로 떠올려 보세요</span>
         <h2>{card.question}</h2>
+        {writeMode && (
+          <label className="written-recall">
+            내가 떠올린 답
+            <textarea
+              value={written}
+              maxLength={2000}
+              readOnly={revealed}
+              onChange={(e) => setWritten(e.target.value)}
+              placeholder="기억나는 만큼 적어보세요. 빈칸이어도 정답을 확인할 수 있어요."
+            />
+            <small>이번 카드에서만 표시하며 저장·자동 채점하지 않습니다.</small>
+          </label>
+        )}
         {revealed ? (
           <div className="revealed-answer">{card.answer}</div>
         ) : (
@@ -80,7 +106,10 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
       </div>
       {revealed && (
         <>
-          <p className="center muted">정답을 보기 전에 얼마나 기억했나요?</p>
+          <p className="center muted">
+            정답을 보기 전에 얼마나 기억했나요? 표현이 달라도 핵심 내용이 맞는지
+            직접 비교하세요.
+          </p>
           <div className="button-row wrap">
             {(
               [
@@ -88,7 +117,7 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
                 ["hard", "어려움", "1일 후"],
                 ["good", "기억함", "간격 늘리기"],
               ] as const
-            ).map(([value, label, sub]) => (
+            ).map(([value, label]) => (
               <button
                 className={value === "good" ? "primary" : "secondary"}
                 key={value}
@@ -96,7 +125,11 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
                 disabled={busy}
               >
                 {label}
-                <small>{c.mode === "practice" ? "일정 유지" : sub}</small>
+                <small>
+                  {c.mode === "practice"
+                    ? "일정 유지"
+                    : `${scheduleCard(card, value).due} 복습`}
+                </small>
               </button>
             ))}
           </div>

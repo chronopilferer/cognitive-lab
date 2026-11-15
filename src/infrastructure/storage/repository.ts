@@ -5,12 +5,18 @@ import {
   type Data,
   type Card,
 } from "./schema";
+import {
+  uniqueDrafts,
+  type CardDraft,
+} from "../../core/training/cardImport";
+import { localDay, uniqueId } from "../../shared/utils";
 import type { Session, Config } from "../../core/training/types";
 export interface Repository {
   read(): Promise<Data>;
   saveSession(s: Session): Promise<Data>;
   saveConfig(id: string, c: Config): Promise<Data>;
   saveCard(c: Card): Promise<Data>;
+  addCards(cards: CardDraft[]): Promise<Data>;
   deleteCard(id: string): Promise<Data>;
   deleteSession(id: string): Promise<Data>;
   setTheme(theme: "light" | "dark"): Promise<Data>;
@@ -85,6 +91,26 @@ export class LocalStorageRepository implements Repository {
       ...d,
       cards: [...d.cards.filter((x) => x.id !== c.id), c],
     }));
+  }
+  addCards(drafts: CardDraft[]) {
+    return this.mutate((d) => {
+      const fresh = uniqueDrafts(drafts, d.cards);
+      if (d.cards.length + fresh.length > 2000)
+        throw Error("카드는 최대 2,000장까지 저장할 수 있습니다.");
+      return {
+        ...d,
+        cards: [
+          ...d.cards,
+          ...fresh.map((c) => ({
+            ...c,
+            id: uniqueId(),
+            due: localDay(),
+            stage: 0,
+            updatedAt: new Date().toISOString(),
+          })),
+        ],
+      };
+    });
   }
   deleteCard(id: string) {
     return this.mutate((d) => ({

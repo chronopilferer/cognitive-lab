@@ -388,8 +388,9 @@ function TrainingInner({ training: t }: { training: TrainingDefinition }) {
               </p>
               {!canStart && (
                 <p className="hint">
-                  오늘 예정된 복습이 없습니다. 아래에서 카드를 추가하거나 연습
-                  모드를 이용하세요.
+                  {data.cards.length
+                    ? "오늘 예정된 복습이 없습니다. 먼저 연습해 보기로 전체 카드를 복습하거나 아래에서 카드를 추가하세요."
+                    : "아직 학습 카드가 없습니다. 아래에서 한 장씩 만들거나 여러 카드를 한 번에 붙여넣으세요."}
                 </p>
               )}
             </section>

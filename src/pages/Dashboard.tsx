@@ -26,9 +26,11 @@ export function Dashboard() {
   const recent = [...valid].sort((a, b) =>
     b.completedAt.localeCompare(a.completedAt),
   )[0];
-  const next = recent
-    ? registry[(registry.findIndex((t) => t.id === recent.trainingId) + 1) % 5]
-    : registry[0];
+  const next = due
+    ? registry.find((t) => t.id === "spaced-repetition")!
+    : recent
+      ? registry.find((t) => t.id === recent.trainingId)!
+      : registry[0];
   return (
     <div className="page">
       <div className="page-heading">
@@ -62,7 +64,12 @@ export function Dashboard() {
             가볍게 시작하고, 나의 변화를 관찰해 보세요.
           </p>
           <Link className="primary hero-button" to={`/training/${next.id}`}>
-            지금 훈련 시작하기 <ArrowRight size={18} />
+            {due
+              ? `오늘 복습 ${due}장 확인하기`
+              : recent
+                ? "최근 훈련 이어가기"
+                : "지금 훈련 시작하기"}{" "}
+            <ArrowRight size={18} />
           </Link>
           <span className="hero-caption">
             {next.name}부터 시작 · 언제든 다른 훈련을 선택할 수 있어요
