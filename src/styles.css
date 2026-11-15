@@ -267,7 +267,7 @@ label small {
   padding: 14px;
   border-radius: 8px;
   font-size: 13px;
-  color: #75808a;
+  color: #626f78;
   margin-bottom: 6px;
   font-weight: 500;
   min-height: 48px;
@@ -2245,7 +2245,7 @@ kbd {
   color: #526e5d;
 }
 .hero-caption {
-  color: #5f7869;
+  color: #486351;
 }
 .stat-card p,
 .english-label,
@@ -2253,7 +2253,7 @@ kbd {
 .training-card > p,
 .section-title a,
 .activity-caption {
-  color: #687780;
+  color: #596871;
 }
 .category-tag {
   filter: none;
@@ -2269,7 +2269,7 @@ kbd {
   color: #75628f;
 }
 .training-card.rose .category-tag {
-  color: #8e6370;
+  color: #79515e;
 }
 .training-card.sand .category-tag {
   color: #7d6b3c;
@@ -2279,7 +2279,7 @@ kbd {
   color: #656f5d;
 }
 .workspace footer {
-  color: #697780;
+  color: #596871;
 }
 .profile small {
   color: #67757b;

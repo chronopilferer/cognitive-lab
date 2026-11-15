@@ -75,9 +75,7 @@ export function Dashboard() {
             <BrainCircuit size={82} strokeWidth={1.2} />
             <span>ONE STEP AT A TIME</span>
           </div>
-          <div className="float-tile number-tile">
-            2<span>back</span>
-          </div>
+          <div className="float-tile number-tile">2</div>
           <div className="float-tile check-tile">
             <Check size={26} />
           </div>
@@ -164,6 +162,7 @@ export function Dashboard() {
             {activity(data.sessions, 28).map((a) => (
               <span
                 key={a.day}
+                role="img"
                 className={`activity-cell intensity-${Math.min(3, a.count)}`}
                 title={`${a.day}: ${a.count}회`}
                 aria-label={`${a.day} ${a.count}회`}
