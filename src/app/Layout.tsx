@@ -1,3 +1,4 @@
+import { useAuth } from "./AuthProvider";
 import { useEffect } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import {
@@ -22,6 +23,7 @@ const links = [
   { path: "/research", label: "근거와 가이드", icon: BookOpen },
 ];
 export function Layout() {
+  const { user } = useAuth();
   const { data, error, notice, setNotice, act } = useData();
   const location = useLocation();
   useEffect(() => {
@@ -72,9 +74,13 @@ export function Layout() {
             <ShieldCheck size={20} />
             <strong>오직 나에게 집중</strong>
             <p>
-              가입 없이, 나만의 속도로.
+              {user
+                ? "로그인한 계정에 온라인 저장"
+                : "가입 없이, 나만의 속도로."}
               <br />
-              기록은 이 브라우저에 저장돼요.
+              {user
+                ? "다른 기기에서도 이어서 학습해요."
+                : "로그인하면 기록을 온라인에 보관해요."}
             </p>
           </div>
           <NavLink className="nav-item" to="/settings">
@@ -115,8 +121,9 @@ export function Layout() {
           <span>
             Cognitive Lab <ChevronRight size={14} /> <b>{name}</b>
           </span>
-          <Link to="/research" className="top-link">
-            작은 연습, 꾸준한 발견 <ArrowUpRight size={15} />
+          <Link to="/settings" className="top-link">
+            {user ? "계정 · 온라인 저장" : "로그인 / 가입"}{" "}
+            <ArrowUpRight size={15} />
           </Link>
         </header>
         <main id="main" tabIndex={-1}>

@@ -30,7 +30,7 @@ it("completes, persists and reloads a real reasoning session", async () => {
     fireEvent.click(screen.getByRole("button", { name }));
   fireEvent.click(screen.getByRole("button", { name: "정답 확인" }));
   fireEvent.click(screen.getByRole("button", { name: "결과 보기" }));
-  await screen.findByText("기록이 이 브라우저에 저장되었습니다.");
+  await screen.findByText("기록이 저장되었습니다.");
   expect(
     (await repository.read()).sessions.filter((s) => s.status === "completed"),
   ).toHaveLength(1);

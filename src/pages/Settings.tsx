@@ -1,3 +1,5 @@
+import { AccountPanel } from "../shared/components/AccountPanel";
+import { useAuth } from "../app/AuthProvider";
 import { Button } from "../shared/components/Button";
 import { useState } from "react";
 import { Download, Upload, ShieldCheck, Sun, Moon } from "lucide-react";
@@ -15,6 +17,7 @@ function download(content: string, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function Settings() {
+  const { user } = useAuth();
   const { data, error, act, setNotice } = useData();
   const [pending, setPending] = useState<Data | null>(null);
   const [mode, setMode] = useState<"merge" | "replace">("merge");
@@ -28,6 +31,7 @@ export function Settings() {
           <p>나의 기록을 안전하게 보관하고, 편한 환경을 선택하세요.</p>
         </div>
       </div>
+      <AccountPanel />
       <section className="panel">
         <h2>개발 소스</h2>
         <p className="muted">
@@ -74,9 +78,9 @@ export function Settings() {
           훈련 기록 {data.sessions.length}개 · 학습 카드 {data.cards.length}장
         </p>
         <p className="muted">
-          기록은 현재 브라우저에만 저장되며 자동 동기화되지 않습니다. 브라우저
-          데이터를 지우거나 다른 기기를 이용하기 전 JSON 파일로 백업하세요.
-          사이트 주소가 바뀌어도 백업 파일로 옮길 수 있습니다.
+          {user
+            ? "현재 계정의 온라인 기록입니다. 중요한 기록은 JSON으로 따로 백업할 수 있습니다."
+            : "기록은 이 브라우저에 저장됩니다. 로그인 후 브라우저 기록 가져오기로 온라인에 보관하거나 JSON으로 백업하세요."}
         </p>
         <div className="button-row wrap">
           <button
@@ -120,7 +124,7 @@ export function Settings() {
             />
           </label>
         </div>
-        {error && (
+        {error && !user && (
           <button
             className="secondary"
             onClick={() =>
@@ -183,8 +187,10 @@ export function Settings() {
       <section className="panel">
         <h2>데이터 초기화</h2>
         <p className="muted">
-          이 사이트에 저장된 기록·카드·설정을 모두 삭제합니다. 먼저 백업을
-          권장합니다.
+          {user
+            ? "현재 계정의 온라인 기록·카드·설정을 모두 삭제합니다. 다른 기기에도 반영되며 브라우저 원본은 유지됩니다."
+            : "이 브라우저의 기록·카드·설정을 모두 삭제합니다."}{" "}
+          먼저 백업을 권장합니다.
         </p>
         <button
           className="danger-button"
@@ -203,9 +209,9 @@ export function Settings() {
         </button>
       </section>
       <p className="hint">
-        스키마 v1 · 서버 전송 없음 · 최대 세션 5,000개 / 카드 2,000장. 한도에
-        도달하면 백업 후 오래된 기록을 삭제해 주세요. 기록을 자동 삭제하지
-        않습니다.
+        스키마 v1 · {user ? "계정에 온라인 저장" : "브라우저에 저장"} · 최대
+        세션 5,000개 / 카드 2,000장. 한도에 도달하면 백업 후 오래된 기록을
+        삭제해 주세요. 기록을 자동 삭제하지 않습니다.
       </p>
     </div>
   );

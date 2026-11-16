@@ -1,3 +1,4 @@
+import { supabase } from "../cloud/client";
 import {
   emptyData,
   migrate,
@@ -46,6 +47,9 @@ export function mergeData(old: Data, incoming: Data): Data {
 export class LocalStorageRepository implements Repository {
   constructor(private storage: Storage = localStorage) {}
   async read() {
+    return this.readLocal();
+  }
+  private async readLocal() {
     const raw = this.storage.getItem(KEY);
     if (!raw) return emptyData();
     try {
@@ -56,9 +60,9 @@ export class LocalStorageRepository implements Repository {
       );
     }
   }
-  private async mutate(fn: (d: Data) => Data) {
+  protected async mutate(fn: (d: Data) => Data): Promise<Data> {
     const run = async () => {
-      const next = validateData(fn(await this.read()));
+      const next = validateData(fn(await this.readLocal()));
       try {
         this.storage.setItem(KEY, JSON.stringify(next));
       } catch {
@@ -138,7 +142,7 @@ export class LocalStorageRepository implements Repository {
     if (mode === "replace") return this.replace(incoming);
     return this.mutate((d) => mergeData(d, incoming));
   }
-  private async replace(data: Data) {
+  protected async replace(data: Data): Promise<Data> {
     const run = async () => {
       this.storage.setItem(KEY, JSON.stringify(validateData(data)));
       window.dispatchEvent(new Event("lab-data"));
@@ -153,4 +157,61 @@ export class LocalStorageRepository implements Repository {
     return this.storage.getItem(KEY) ?? "{}";
   }
 }
-export const repository = new LocalStorageRepository();
+export const localRepository = new LocalStorageRepository();
+export class AccountRepository extends LocalStorageRepository {
+  userId: string | null = null;
+  private assertAccount(id: string) {
+    if (this.userId !== id)
+      throw Error("계정이 변경되었습니다. 다시 시도해 주세요.");
+  }
+  private async snapshot(id: string) {
+    const { data, error } = await supabase
+      .from("user_workspaces")
+      .select("payload,revision")
+      .eq("user_id", id)
+      .maybeSingle();
+    this.assertAccount(id);
+    if (error)
+      throw Error(
+        "온라인 기록을 불러오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.",
+      );
+    return {
+      data: data ? validateData(data.payload) : emptyData(),
+      revision: data?.revision ?? 0,
+    };
+  }
+  override async read() {
+    const id = this.userId;
+    return id ? (await this.snapshot(id)).data : super.read();
+  }
+  protected override async mutate(fn: (d: Data) => Data): Promise<Data> {
+    const id = this.userId;
+    if (!id) return super.mutate(fn);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const current = await this.snapshot(id);
+      const next = validateData(fn(current.data));
+      this.assertAccount(id);
+      const { data, error } = await supabase.rpc("save_workspace", {
+        p_user: id,
+        p_revision: current.revision,
+        p_payload: next,
+      });
+      this.assertAccount(id);
+      if (error)
+        throw Error(
+          "온라인 저장에 실패했습니다. 입력 내용을 유지한 채 연결을 확인하고 다시 시도해 주세요.",
+        );
+      if (data !== null) {
+        window.dispatchEvent(new Event("lab-data"));
+        return next;
+      }
+    }
+    throw Error(
+      "다른 기기에서 기록을 수정 중입니다. 잠시 후 다시 시도해 주세요.",
+    );
+  }
+  protected override async replace(data: Data): Promise<Data> {
+    return this.userId ? this.mutate(() => data) : super.replace(data);
+  }
+}
+export const repository = new AccountRepository();

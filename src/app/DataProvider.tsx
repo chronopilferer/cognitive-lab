@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
   type ReactNode,
 } from "react";
 import { emptyData, type Data } from "../infrastructure/storage/schema";
@@ -25,14 +26,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
   const [notice, setNotice] = useState("");
+  const generation = useRef(0);
   async function refresh() {
+    const run = ++generation.current;
     try {
-      setData(await repository.read());
+      const next = await repository.read();
+      if (run !== generation.current) return;
+      setData(next);
       setError("");
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
+      if (run === generation.current)
+        setError(String(e instanceof Error ? e.message : e));
     } finally {
-      setReady(true);
+      if (run === generation.current) setReady(true);
     }
   }
   useEffect(() => {
@@ -41,6 +47,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     window.addEventListener("storage", fn);
     window.addEventListener("lab-data", fn);
     return () => {
+      generation.current++;
       window.removeEventListener("storage", fn);
       window.removeEventListener("lab-data", fn);
     };

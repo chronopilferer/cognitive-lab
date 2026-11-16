@@ -11,7 +11,7 @@ test("reasoning → save → reload → export and import", async ({ page }) => 
   await page.getByRole("button", { name: "정답 확인", exact: true }).click();
   await page.getByRole("button", { name: "결과 보기", exact: true }).click();
   await expect(
-    page.getByText("기록이 이 브라우저에 저장되었습니다."),
+    page.getByText("기록이 저장되었습니다."),
   ).toBeVisible();
   await page.goto("/#/statistics");
   await page.reload();
@@ -126,4 +126,44 @@ test("subject decks select real practice cards and preserve schedules", async ({
       ),
     ).toBe(true);
   }
+});
+
+test('account login, online card persistence, logout isolation and mobile form', async ({page}) => {
+  // HTTP contract fixture; the real project's RLS/CAS is separately tested in a rollback transaction.
+  const user={id:'00000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',email:'qa@example.invalid',app_metadata:{provider:'email'},user_metadata:{},created_at:'2026-11-16T00:00:00Z'};
+  const token=['eyJhbGciOiJIUzI1NiJ9',Buffer.from(JSON.stringify({sub:user.id,exp:Math.floor(Date.now()/1000)+3600,role:'authenticated'})).toString('base64url'),'fixture'].join('.');
+  let workspace: {payload:unknown;revision:number}|null=null;
+  await page.route('https://zkfuaydidrhrniewaxqt.supabase.co/**',async route=>{
+    const url=new URL(route.request().url());
+    let response:unknown={};
+    if(url.pathname.endsWith('/token')) response={access_token:token,refresh_token:'test-only',expires_in:3600,token_type:'bearer',user};
+    else if(url.pathname.endsWith('/user')) response=user;
+    else if(url.pathname.endsWith('/user_workspaces')) response=workspace;
+    else if(url.pathname.endsWith('/rpc/save_workspace')) {
+      const body=route.request().postDataJSON();
+      if(body.p_revision === (workspace?.revision??0)){workspace={payload:body.p_payload,revision:(workspace?.revision??0)+1};response=workspace.revision;} else response=null;
+    }
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(response)});
+  });
+  await page.goto('/#/settings');
+  await page.getByLabel('이메일',{exact:true}).fill('qa@example.invalid');
+  await page.getByLabel('비밀번호',{exact:true}).fill('fixture-password');
+  await page.getByRole('button',{name:'계정으로 로그인',exact:true}).click();
+  await expect(page.getByText('qa@example.invalid',{exact:true})).toBeVisible();
+  await page.goto('/#/training/spaced-repetition');
+  await page.getByRole('textbox',{name:'질문',exact:true}).fill('온라인 카드');
+  await page.getByRole('textbox',{name:'정답',exact:true}).fill('계정 저장');
+  await page.getByRole('button',{name:'카드 추가',exact:true}).click();
+  await expect(page.getByText('학습 카드를 저장했습니다.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('선택한 묶음 1장 · 오늘 복습 1장')).toBeVisible();
+  await page.goto('/#/settings');
+  await page.getByRole('button',{name:'로그아웃',exact:true}).click();
+  await expect(page.getByText('훈련 기록 0개 · 학습 카드 0장')).toBeVisible();
+  await expect(page.getByRole('button',{name:'계정으로 로그인',exact:true})).toBeVisible();
+  for(const width of [320,390,768]){
+    await page.setViewportSize({width,height:900});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+  expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa']).analyze()).violations).toEqual([]);
 });

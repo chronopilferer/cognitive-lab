@@ -4,7 +4,7 @@ import zipfile
 root = Path(__file__).resolve().parents[1]
 destination = root / 'public' / 'cognitive-lab-source.zip'
 destination.parent.mkdir(exist_ok=True)
-excluded = {'node_modules', '.git', '.openai', '.sites-runtime', 'dist', 'test-results', 'playwright-report', '__pycache__'}
+excluded = {'node_modules', '.git', '.openai', '.sites-runtime', 'dist', 'test-results', 'playwright-report', '__pycache__', '.temp'}
 with zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED) as archive:
     for path in sorted(root.rglob('*')):
         rel = path.relative_to(root)

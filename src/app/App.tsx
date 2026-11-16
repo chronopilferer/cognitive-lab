@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { HashRouter, Routes, Route, Link } from "react-router-dom";
 import { Layout } from "./Layout";
-import { DataProvider } from "./DataProvider";
+import { AuthProvider } from "./AuthProvider";
 import { Dashboard } from "../pages/Dashboard";
 import { TrainingList } from "../pages/TrainingList";
 import { Training } from "../pages/Training";
@@ -12,7 +12,7 @@ import { Settings } from "../pages/Settings";
 import { Research } from "../pages/Research";
 export default function App() {
   return (
-    <DataProvider>
+    <AuthProvider>
       <HashRouter>
         <Routes>
           <Route element={<Layout />}>
@@ -45,6 +45,6 @@ export default function App() {
           </Route>
         </Routes>
       </HashRouter>
-    </DataProvider>
+    </AuthProvider>
   );
 }

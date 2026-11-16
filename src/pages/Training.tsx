@@ -521,7 +521,7 @@ function TrainingInner({ training: t }: { training: TrainingDefinition }) {
             {currentResult.config.mode === "practice"
               ? "연습을 마쳤습니다. 결과는 저장하지 않았습니다."
               : saved
-                ? "기록이 이 브라우저에 저장되었습니다."
+                ? "기록이 저장되었습니다."
                 : "기록을 아직 저장하지 못했습니다."}
           </p>
           {!saved && currentResult.config.mode === "training" && (
