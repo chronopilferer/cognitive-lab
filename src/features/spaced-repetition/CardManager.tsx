@@ -2,10 +2,30 @@ import { useRef, useState } from "react";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { useData } from "../../app/DataProvider";
 import { repository } from "../../infrastructure/storage/repository";
+import {
+  cardsInDeck,
+  deckName,
+  deckNames,
+  DEFAULT_DECK,
+} from "../../core/training/decks";
 import { localDay, uniqueId } from "../../shared/utils";
-import { parseCardText, uniqueDrafts, type CardDraft } from "../../core/training/cardImport";
-export function CardManager() {
+import {
+  parseCardText,
+  uniqueDrafts,
+  type CardDraft,
+} from "../../core/training/cardImport";
+export function CardManager({
+  selectedDeck,
+  onDeckChange,
+}: {
+  selectedDeck?: string;
+  onDeckChange?: (deck: string | undefined) => void;
+} = {}) {
   const { data, act, setNotice } = useData();
+  const [deck, setDeck] = useState(selectedDeck ?? DEFAULT_DECK);
+  const [saving, setSaving] = useState(false);
+  const saveLock = useRef(false);
+  const editingVersion = useRef<string | undefined>(undefined);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
@@ -16,8 +36,20 @@ export function CardManager() {
   const [bulkError, setBulkError] = useState("");
   const [adding, setAdding] = useState(false);
   const addLock = useRef(false);
-  const fresh = drafts ? uniqueDrafts(drafts, data.cards) : [];
-  const matches = data.cards.filter(
+  const targetDeck = deck.trim() || DEFAULT_DECK;
+  const names = [
+    ...new Set([
+      ...deckNames(data.cards),
+      ...(selectedDeck ? [selectedDeck] : []),
+    ]),
+  ];
+  const fresh = drafts
+    ? uniqueDrafts(
+        drafts.map((c) => ({ ...c, deck: targetDeck })),
+        data.cards,
+      )
+    : [];
+  const matches = cardsInDeck(data.cards, selectedDeck).filter(
     (c) =>
       (!dueOnly || c.due <= localDay()) &&
       `${c.question} ${c.answer}`
@@ -33,6 +65,30 @@ export function CardManager() {
           {data.cards.filter((c) => c.due <= localDay()).length}장
         </span>
       </div>
+      <label>
+        저장할 묶음
+        <input
+          list="card-deck-names"
+          value={deck}
+          maxLength={40}
+          disabled={saving || adding}
+          onChange={(e) => setDeck(e.target.value)}
+          placeholder="예: 자료구조, SQL, 영어 표현"
+        />
+        <datalist id="card-deck-names">
+          {names.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
+        <small>
+          기존 묶음을 선택하거나 새 이름을 입력하세요. 비워두면 기본 묶음으로
+          저장됩니다.
+        </small>
+      </label>
+      <p className="hint">
+        카드를 추가하면 묶음이 만들어집니다. 기존 카드는 수정에서 묶음을 바꿀 수
+        있고, 마지막 카드를 옮기거나 삭제한 빈 묶음은 목록에서 사라집니다.
+      </p>
       <details className="bulk-cards">
         <summary>여러 카드 한 번에 추가</summary>
         <p className="hint">
@@ -85,8 +141,8 @@ export function CardManager() {
         {drafts && (
           <div className="bulk-preview">
             <p role="status">
-              새 카드 {fresh.length}장 · 동일한 질문·정답{" "}
-              {drafts.length - fresh.length}장 제외
+              {targetDeck}에 새 카드 {fresh.length}장 · 같은 묶음의 동일한
+              질문·정답 {drafts.length - fresh.length}장 제외
             </p>
             <ul>
               {fresh.slice(0, 5).map((c, i) => (
@@ -106,6 +162,7 @@ export function CardManager() {
                 setAdding(true);
                 try {
                   if (await act(() => repository.addCards(fresh))) {
+                    onDeckChange?.(targetDeck);
                     setBulk("");
                     setDrafts(null);
                     setNotice("중복을 제외한 새 카드를 추가했습니다.");
@@ -124,23 +181,37 @@ export function CardManager() {
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          const previous = data.cards.find((c) => c.id === editing);
-          if (
-            await act(() =>
-              repository.saveCard({
-                id: editing ?? uniqueId(),
-                question: question.trim(),
-                answer: answer.trim(),
-                due: previous?.due ?? localDay(),
-                stage: previous?.stage ?? 0,
-                updatedAt: new Date().toISOString(),
-              }),
-            )
-          ) {
-            setQuestion("");
-            setAnswer("");
-            setEditing(null);
-            setNotice("학습 카드를 저장했습니다.");
+          if (saveLock.current) return;
+          saveLock.current = true;
+          setSaving(true);
+          try {
+            const previous = data.cards.find((c) => c.id === editing);
+            if (
+              await act(() =>
+                repository.saveCard(
+                  {
+                    id: editing ?? uniqueId(),
+                    deck: targetDeck,
+                    question: question.trim(),
+                    answer: answer.trim(),
+                    due: previous?.due ?? localDay(),
+                    stage: previous?.stage ?? 0,
+                    updatedAt: new Date().toISOString(),
+                  },
+                  editingVersion.current,
+                ),
+              )
+            ) {
+              onDeckChange?.(targetDeck);
+              editingVersion.current = undefined;
+              setQuestion("");
+              setAnswer("");
+              setEditing(null);
+              setNotice("학습 카드를 저장했습니다.");
+            }
+          } finally {
+            saveLock.current = false;
+            setSaving(false);
           }
         }}
       >
@@ -169,10 +240,10 @@ export function CardManager() {
         <button
           className="primary"
           type="submit"
-          disabled={!question.trim() || !answer.trim()}
+          disabled={saving || !question.trim() || !answer.trim()}
         >
           <Plus size={16} />
-          {editing ? "수정 저장" : "카드 추가"}
+          {saving ? "저장 중…" : editing ? "수정 저장" : "카드 추가"}
         </button>
         {editing && (
           <button
@@ -180,6 +251,7 @@ export function CardManager() {
             className="ghost"
             onClick={() => {
               setEditing(null);
+              editingVersion.current = undefined;
               setQuestion("");
               setAnswer("");
             }}
@@ -189,6 +261,26 @@ export function CardManager() {
         )}
       </form>
       <div className="card-filters">
+        {onDeckChange && (
+          <label>
+            목록과 훈련의 묶음
+            <select
+              value={selectedDeck ?? ""}
+              onChange={(e) => onDeckChange(e.target.value || undefined)}
+            >
+              <option value="">전체 묶음</option>
+              {names.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <p className="hint">
+          묶음 선택은 위의 훈련 설정에도 적용됩니다. 아래 검색과 오늘 복습
+          필터는 목록만 좁힙니다.
+        </p>
         <label>
           카드 검색
           <input
@@ -216,13 +308,15 @@ export function CardManager() {
             <div>
               <strong>{card.question}</strong>
               <small>
-                다음 복습 {card.due} · {card.stage}단계
+                {deckName(card)} · 다음 복습 {card.due} · {card.stage}단계
               </small>
             </div>
             <button
               className="icon-button"
               aria-label={`${card.question} 수정`}
               onClick={() => {
+                editingVersion.current = card.updatedAt;
+                setDeck(deckName(card));
                 setEditing(card.id);
                 setQuestion(card.question);
                 setAnswer(card.answer);

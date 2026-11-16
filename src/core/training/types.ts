@@ -14,6 +14,7 @@ export interface Config {
   mode: "practice" | "training";
   auto: boolean;
   locations: string[];
+  deck?: string;
 }
 export type Metrics =
   | {

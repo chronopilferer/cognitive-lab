@@ -30,6 +30,7 @@ export function conditionKey(c: Config) {
     c.variant,
     c.mode,
     c.locations,
+    c.deck ?? null,
   ]);
 }
 export function nextDifficulty(

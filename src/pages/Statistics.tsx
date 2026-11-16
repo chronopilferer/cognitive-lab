@@ -92,8 +92,11 @@ export function Statistics() {
                   return (
                     <option key={key} value={key}>
                       Lv.{s.config.level} · {s.config.interval / 1000}초 ·{" "}
-                      {s.config.rounds}회 · {s.config.variant} · {s.inputMethod}{" "}
-                      · 규칙 {s.algorithmVersion}
+                      {s.config.rounds}회 · {s.config.variant} ·{" "}
+                      {s.trainingId === "spaced-repetition"
+                        ? `${s.config.deck ?? "전체 묶음"} · `
+                        : ""}
+                      {s.inputMethod} · 규칙 {s.algorithmVersion}
                     </option>
                   );
                 })}
@@ -168,6 +171,9 @@ export function Statistics() {
                         minute: "2-digit",
                       })}{" "}
                       · Level {s.config.level} · {s.config.variant}
+                      {s.trainingId === "spaced-repetition"
+                        ? ` · ${s.config.deck ?? "전체 묶음"}`
+                        : ""}
                     </small>
                   </span>
                   <b>{s.metrics ? pct(accuracy(s.metrics)) : "중단"}</b>

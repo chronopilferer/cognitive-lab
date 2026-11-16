@@ -5,17 +5,14 @@ import {
   type Data,
   type Card,
 } from "./schema";
-import {
-  uniqueDrafts,
-  type CardDraft,
-} from "../../core/training/cardImport";
+import { uniqueDrafts, type CardDraft } from "../../core/training/cardImport";
 import { localDay, uniqueId } from "../../shared/utils";
 import type { Session, Config } from "../../core/training/types";
 export interface Repository {
   read(): Promise<Data>;
   saveSession(s: Session): Promise<Data>;
   saveConfig(id: string, c: Config): Promise<Data>;
-  saveCard(c: Card): Promise<Data>;
+  saveCard(c: Card, expectedUpdatedAt?: string): Promise<Data>;
   addCards(cards: CardDraft[]): Promise<Data>;
   deleteCard(id: string): Promise<Data>;
   deleteSession(id: string): Promise<Data>;
@@ -86,11 +83,17 @@ export class LocalStorageRepository implements Repository {
       settings: { ...d.settings, configs: { ...d.settings.configs, [id]: c } },
     }));
   }
-  saveCard(c: Card) {
-    return this.mutate((d) => ({
-      ...d,
-      cards: [...d.cards.filter((x) => x.id !== c.id), c],
-    }));
+  saveCard(c: Card, expectedUpdatedAt?: string) {
+    return this.mutate((d) => {
+      if (
+        expectedUpdatedAt &&
+        d.cards.find((x) => x.id === c.id)?.updatedAt !== expectedUpdatedAt
+      )
+        throw Error(
+          "다른 탭에서 카드가 변경되거나 삭제되었습니다. 설정으로 돌아가 최신 카드를 다시 선택해 주세요.",
+        );
+      return { ...d, cards: [...d.cards.filter((x) => x.id !== c.id), c] };
+    });
   }
   addCards(drafts: CardDraft[]) {
     return this.mutate((d) => {

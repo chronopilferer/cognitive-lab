@@ -2,19 +2,11 @@ import { useRef, useState } from "react";
 import type { GameProps } from "../../core/training/types";
 import { useData } from "../../app/DataProvider";
 import { repository } from "../../infrastructure/storage/repository";
-import { localDay } from "../../shared/utils";
+import { reviewCards } from "../../core/training/decks";
 import { scheduleCard } from "./engine";
 export function RepetitionGame({ config: c, onComplete }: GameProps) {
   const { data, act } = useData();
-  const [cards] = useState(() =>
-    data.cards
-      .filter((card) => c.mode === "practice" || card.due <= localDay())
-      .sort(
-        (a, b) =>
-          a.due.localeCompare(b.due) || a.updatedAt.localeCompare(b.updatedAt),
-      )
-      .slice(0, c.rounds),
-  );
+  const [cards] = useState(() => reviewCards(data.cards, c));
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [written, setWritten] = useState("");
@@ -29,7 +21,9 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
     setBusy(true);
     if (
       c.mode === "training" &&
-      !(await act(() => repository.saveCard(scheduleCard(card, rating))))
+      !(await act(() =>
+        repository.saveCard(scheduleCard(card, rating), card.updatedAt),
+      ))
     ) {
       locked.current = false;
       setBusy(false);

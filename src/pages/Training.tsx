@@ -23,7 +23,8 @@ import {
 } from "../core/training/scoring";
 import { useData } from "../app/DataProvider";
 import { repository } from "../infrastructure/storage/repository";
-import { uniqueId, localDay } from "../shared/utils";
+import { uniqueId } from "../shared/utils";
+import { cardsInDeck, deckNames, reviewCards } from "../core/training/decks";
 import { CardManager } from "../features/spaced-repetition/CardManager";
 import { MetricDetails } from "../shared/components/MetricDetails";
 import { TrainingIcon } from "../shared/components/Icon";
@@ -98,7 +99,7 @@ function TrainingInner({ training: t }: { training: TrainingDefinition }) {
     if (busy) return;
     if (
       t.id === "spaced-repetition" &&
-      !data.cards.some((card) => mode === "practice" || card.due <= localDay())
+      !reviewCards(data.cards, { ...config, mode }).length
     ) {
       setPhase("setup");
       return;
@@ -167,7 +168,18 @@ function TrainingInner({ training: t }: { training: TrainingDefinition }) {
     setBusy(false);
   }
   const Game = t.component;
-  const activeCards = data.cards.filter((c) => c.due <= localDay()).length;
+  const selectedCards = cardsInDeck(data.cards, config.deck);
+  const availableDecks = [
+    ...new Set([
+      ...deckNames(data.cards),
+      ...(config.deck ? [config.deck] : []),
+    ]),
+  ];
+  const activeCards = reviewCards(data.cards, {
+    ...config,
+    mode: "training",
+    rounds: 2000,
+  }).length;
   const canStart = t.id !== "spaced-repetition" || activeCards > 0;
   const locationValid =
     t.id !== "memory-palace" || config.locations.length >= config.level + 2;
@@ -279,6 +291,32 @@ function TrainingInner({ training: t }: { training: TrainingDefinition }) {
                   </label>
                 </>
               )}
+              {t.id === "spaced-repetition" && (
+                <label>
+                  훈련할 카드 묶음
+                  <select
+                    value={config.deck ?? ""}
+                    onChange={(e) =>
+                      change({ deck: e.target.value || undefined })
+                    }
+                  >
+                    <option value="">전체 묶음</option>
+                    {availableDecks.map((deck) => (
+                      <option key={deck} value={deck}>
+                        {deck}
+                      </option>
+                    ))}
+                  </select>
+                  <small>
+                    선택한 묶음 {selectedCards.length}장 · 오늘 복습{" "}
+                    {activeCards}장
+                  </small>
+                  <small>
+                    정식 훈련은 오늘 예정된 카드, 연습은 선택한 묶음의 모든
+                    카드에서 시작합니다.
+                  </small>
+                </label>
+              )}
               {t.variants.length > 0 && (
                 <label>
                   훈련 방식
@@ -375,7 +413,7 @@ function TrainingInner({ training: t }: { training: TrainingDefinition }) {
                 disabled={
                   busy ||
                   !locationValid ||
-                  (t.id === "spaced-repetition" && !data.cards.length)
+                  (t.id === "spaced-repetition" && !selectedCards.length)
                 }
                 onClick={() => void start("practice")}
               >
@@ -388,14 +426,19 @@ function TrainingInner({ training: t }: { training: TrainingDefinition }) {
               </p>
               {!canStart && (
                 <p className="hint">
-                  {data.cards.length
-                    ? "오늘 예정된 복습이 없습니다. 먼저 연습해 보기로 전체 카드를 복습하거나 아래에서 카드를 추가하세요."
-                    : "아직 학습 카드가 없습니다. 아래에서 한 장씩 만들거나 여러 카드를 한 번에 붙여넣으세요."}
+                  {selectedCards.length
+                    ? "선택한 묶음에 오늘 예정된 복습이 없습니다. 먼저 연습해 보기를 이용하거나 아래에서 카드를 추가하세요."
+                    : "선택한 묶음에 카드가 없습니다. 다른 묶음을 선택하거나 아래에서 카드를 추가하세요."}
                 </p>
               )}
             </section>
           </div>
-          {t.id === "spaced-repetition" && <CardManager />}
+          {t.id === "spaced-repetition" && (
+            <CardManager
+              selectedDeck={config.deck}
+              onDeckChange={(deck) => change({ deck })}
+            />
+          )}
         </>
       )}
       {phase === "running" && session && (

@@ -8,6 +8,7 @@ export const configSchema = z.object({
   variant: z.string().max(40),
   mode: z.enum(["practice", "training"]),
   auto: z.boolean(),
+  deck: z.string().trim().min(1).max(40).optional(),
   locations: z.array(z.string().min(1).max(40)).max(12),
 });
 export const metricSchema = z.discriminatedUnion("kind", [
@@ -111,6 +112,7 @@ export const sessionSchema = z
   });
 export const cardSchema = z.object({
   id: z.string().min(1).max(100),
+  deck: z.string().trim().min(1).max(40).optional(),
   question: z.string().min(1).max(1000),
   answer: z.string().min(1).max(2000),
   due: z.iso.date(),
