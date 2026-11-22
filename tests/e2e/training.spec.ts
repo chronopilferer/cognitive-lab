@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 test("reasoning → save → reload → export and import", async ({ page }) => {
   await page.goto("/#/training/reasoning");
+  await page.getByText("고급 설정", {exact:true}).click();
   await page.getByRole("combobox", { name: /라운드 수/ }).selectOption("1");
   await page
     .getByRole("button", { name: "정식 훈련 시작", exact: true })
@@ -34,6 +35,7 @@ test("reasoning → save → reload → export and import", async ({ page }) => 
 });
 test("practice does not create training records", async ({ page }) => {
   await page.goto("/#/training/reasoning");
+  await page.getByText("고급 설정", {exact:true}).click();
   await page.getByRole("combobox", { name: /라운드 수/ }).selectOption("1");
   await page.getByRole("button", { name: "먼저 연습해 보기" }).click();
   for (const name of ["가람", "나래", "다온"])
@@ -49,7 +51,7 @@ test("practice does not create training records", async ({ page }) => {
 test("dashboard accessibility and responsive overflow", async ({ page }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "오늘도, 나만의 속도로." }),
+    page.getByRole("heading", { name: "오늘의 복습" }),
   ).toBeVisible();
   const violations = (
     await new AxeBuilder({ page })
@@ -71,6 +73,7 @@ test("subject decks select real practice cards and preserve schedules", async ({
   page,
 }) => {
   await page.goto("/#/training/spaced-repetition");
+  await page.getByText("카드 고급 설정", {exact:true}).click();
   await page.getByRole("combobox", { name: /저장할 묶음/ }).fill("자료구조");
   await page
     .getByRole("textbox", { name: "질문", exact: true })
@@ -166,4 +169,21 @@ test('account login, online card persistence, logout isolation and mobile form',
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   }
   expect((await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa']).analyze()).violations).toEqual([]);
+});
+test("add a card and review it directly from home", async ({page}) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "새 카드 추가" }).click();
+  await page.getByLabel("과목 이름").fill("자료구조");
+  await page.getByLabel("질문", {exact:true}).fill("큐의 순서");
+  await page.getByLabel("정답", {exact:true}).fill("FIFO");
+  await page.getByRole("button", {name:"카드 추가",exact:true}).click();
+  await expect(page.getByText("학습 카드를 저장했습니다.")).toBeVisible();
+  await page.goto("/");
+  await page.getByRole("button",{name:"복습 시작"}).click();
+  await expect(page.getByRole("heading",{name:"큐의 순서"})).toBeVisible();
+  await page.getByRole("button",{name:"정답 확인"}).click();
+  await page.getByRole("button",{name:/^기억함/}).click();
+  await expect(page.getByText("기록이 저장되었습니다.")).toBeVisible();
+  await page.goto("/");
+  await expect(page.getByText("오늘 복습 완료 1장 · 복습 예정 0장")).toBeVisible();
 });

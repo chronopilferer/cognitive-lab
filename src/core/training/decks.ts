@@ -13,17 +13,16 @@ export function deckNames(cards: Card[]) {
 export function cardsInDeck(cards: Card[], deck?: string) {
   return deck ? cards.filter((card) => deckName(card) === deck) : cards;
 }
+export const isReviewable = (card: Card) =>
+  (!card.status || card.status === "active") &&
+  (!card.type ||
+    ["memorization", "explanation", "application", "speaking"].includes(
+      card.type,
+    )) &&
+  (card.contentVersion ?? 1) === 1;
 export function reviewCards(cards: Card[], config: Config, today = localDay()) {
   return cardsInDeck(cards, config.deck)
-    .filter(
-      (card) =>
-        (!card.status || card.status === "active") &&
-        (!card.type ||
-          ["memorization", "explanation", "application", "speaking"].includes(
-            card.type,
-          )) &&
-        (card.contentVersion ?? 1) === 1,
-    )
+    .filter(isReviewable)
     .filter((card) => config.mode === "practice" || card.due <= today)
     .sort(
       (a, b) =>

@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Dumbbell,
   ChartNoAxesCombined,
-  BookOpen,
   Settings2,
   ShieldCheck,
   ArrowUpRight,
@@ -17,10 +16,9 @@ import {
 import { useData } from "./DataProvider";
 import { repository } from "../infrastructure/storage/repository";
 const links = [
-  { path: "/", label: "대시보드", icon: LayoutDashboard },
-  { path: "/training", label: "전체 훈련", icon: Dumbbell },
+  { path: "/", label: "학습", icon: LayoutDashboard },
+  { path: "/training", label: "선택 훈련", icon: Dumbbell },
   { path: "/statistics", label: "나의 기록", icon: ChartNoAxesCombined },
-  { path: "/research", label: "근거와 가이드", icon: BookOpen },
 ];
 export function Layout() {
   const { user } = useAuth();
@@ -31,7 +29,11 @@ export function Layout() {
   }, [location.pathname]);
   const name =
     links.find((l) => l.path === location.pathname)?.label ??
-    (location.pathname === "/settings" ? "설정 및 데이터" : "훈련");
+    (location.pathname === "/settings"
+      ? "설정 및 데이터"
+      : location.pathname === "/cards"
+        ? "학습 카드"
+        : "훈련");
   return (
     <>
       <a
@@ -50,11 +52,8 @@ export function Layout() {
             <BrainCircuit size={25} />
           </span>
           <span>
-            Cognitive Lab<small>인지훈련 실험실</small>
+            Cognitive Lab<small>개인 학습 공간</small>
           </span>
-        </Link>
-        <Link to="/training/spaced-repetition" className="nav-item">
-          학습 카드 · 오늘 복습
         </Link>
         <nav aria-label="주 메뉴">
           {links.map(({ path, label, icon: Icon }) => (

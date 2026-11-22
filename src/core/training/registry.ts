@@ -140,3 +140,7 @@ export const registry: TrainingDefinition[] = [
   },
 ];
 export const getTraining = (id: string) => registry.find((t) => t.id === id);
+
+export const optionalTraining = registry.filter(
+  (t) => t.id === "nback" || t.id === "reasoning",
+);

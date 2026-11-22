@@ -2,12 +2,13 @@ import { lazy, Suspense } from "react";
 import { HashRouter, Routes, Route, Link } from "react-router-dom";
 import { Layout } from "./Layout";
 import { AuthProvider } from "./AuthProvider";
-import { Dashboard } from "../pages/Dashboard";
+
 import { TrainingList } from "../pages/TrainingList";
-import { Training } from "../pages/Training";
+import { Dashboard, Training } from "../pages/Training";
 const Statistics = lazy(() =>
   import("../pages/Statistics").then((m) => ({ default: m.Statistics })),
 );
+import { CardsPage } from "../features/spaced-repetition/CardManager";
 import { Settings } from "../pages/Settings";
 import { Research } from "../pages/Research";
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Dashboard />} />
+            <Route path="cards" element={<CardsPage />} />
             <Route path="training" element={<TrainingList />} />
             <Route path="training/:id" element={<Training />} />
             <Route

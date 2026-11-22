@@ -25,6 +25,7 @@ import { useData } from "../app/DataProvider";
 import { repository } from "../infrastructure/storage/repository";
 import { uniqueId } from "../shared/utils";
 import { cardsInDeck, deckNames, reviewCards } from "../core/training/decks";
+import { DashboardContent } from "./Dashboard";
 import { CardManager } from "../features/spaced-repetition/CardManager";
 import { MetricDetails } from "../shared/components/MetricDetails";
 import { TrainingIcon } from "../shared/components/Icon";
@@ -40,11 +41,21 @@ export function Training() {
     );
   return <TrainingInner key={id} training={t} />;
 }
-function TrainingInner({ training: t }: { training: TrainingDefinition }) {
+export function Dashboard() {
+  return <TrainingInner training={getTraining("spaced-repetition")!} home />;
+}
+function TrainingInner({
+  training: t,
+  home = false,
+}: {
+  training: TrainingDefinition;
+  home?: boolean;
+}) {
   const { data, act } = useData();
-  const [config, setConfig] = useState<Config>(
-    () => data.settings.configs[t.id] ?? t.defaultConfig,
-  );
+  const [config, setConfig] = useState<Config>(() => ({
+    ...(data.settings.configs[t.id] ?? t.defaultConfig),
+    ...(home ? { deck: undefined } : {}),
+  }));
   const [phase, setPhase] = useState<
     "setup" | "running" | "stopped" | "result"
   >("setup");
@@ -123,7 +134,7 @@ function TrainingInner({ training: t }: { training: TrainingDefinition }) {
       inputMethod: "unknown",
     };
     const ok = await act(async () => {
-      await repository.saveConfig(t.id, c);
+      if (!home) await repository.saveConfig(t.id, c);
       if (mode === "training") await repository.saveSession(s);
     });
     if (ok) {
@@ -205,12 +216,15 @@ function TrainingInner({ training: t }: { training: TrainingDefinition }) {
     <div
       className={`page training-page ${phase === "running" ? "focus-page" : ""}`}
     >
-      {phase !== "running" && (
+      {!home && phase !== "running" && (
         <Link className="back-link" to="/training">
           <ArrowLeft size={17} /> 전체 훈련
         </Link>
       )}
-      {phase === "setup" && (
+      {phase === "setup" && home && (
+        <DashboardContent start={() => void start("training")} busy={busy} />
+      )}
+      {phase === "setup" && !home && (
         <>
           <div className="training-title">
             <div className={`large-icon ${t.accent}`}>
@@ -230,27 +244,6 @@ function TrainingInner({ training: t }: { training: TrainingDefinition }) {
               <div className="example-box">
                 <b>예를 들어</b>
                 <p>{t.example}</p>
-              </div>
-              <div className="instruction-step">
-                <span>1</span>
-                <div>
-                  <b>먼저 가볍게 연습</b>
-                  <p>시간 압박 없이 직접 넘기며 규칙을 익혀요.</p>
-                </div>
-              </div>
-              <div className="instruction-step">
-                <span>2</span>
-                <div>
-                  <b>나에게 맞게 설정</b>
-                  <p>조금 어려워도 괜찮은 난이도를 골라요.</p>
-                </div>
-              </div>
-              <div className="instruction-step">
-                <span>3</span>
-                <div>
-                  <b>기록하며 이어가기</b>
-                  <p>같은 조건의 이전 기록과 나를 비교해요.</p>
-                </div>
               </div>
               <p className="hint">
                 <Info size={15} />
@@ -317,84 +310,89 @@ function TrainingInner({ training: t }: { training: TrainingDefinition }) {
                   </small>
                 </label>
               )}
-              {t.variants.length > 0 && (
-                <label>
-                  훈련 방식
-                  <select
-                    value={config.variant}
-                    onChange={(e) => change({ variant: e.target.value })}
-                  >
-                    {t.variants.map((v) => (
-                      <option value={v.value} key={v.value}>
-                        {v.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {[
-                "nback",
-                "running-span",
-                "complex-span",
-                "memory-palace",
-              ].includes(t.id) && (
-                <label>
-                  자극 제시 간격
-                  <select
-                    value={config.interval}
-                    onChange={(e) =>
-                      change({ interval: Number(e.target.value) })
-                    }
-                  >
-                    {[1000, 1500, 2000, 3000, 5000, 8000].map((ms) => (
-                      <option value={ms} key={ms}>
-                        {ms / 1000}초
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {!["memory-palace", "complex-span"].includes(t.id) && (
-                <label>
-                  {t.id === "nback"
-                    ? "채점 시행 수"
-                    : t.id === "spaced-repetition"
-                      ? "최대 복습 카드 수"
-                      : "라운드 수"}
-                  <select
-                    value={config.rounds}
-                    onChange={(e) => change({ rounds: Number(e.target.value) })}
-                  >
-                    {(t.id === "nback" || t.id === "spaced-repetition"
-                      ? [10, 20, 30]
-                      : [1, 3, 4, 5]
-                    ).map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {t.id === "memory-palace" && (
-                <label>
-                  나의 장소 경로 (쉼표로 구분)
-                  <textarea
-                    value={config.locations.join(", ")}
-                    onChange={(e) =>
-                      change({
-                        locations: e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .slice(0, 12),
-                      })
-                    }
-                  />
-                  <small>
-                    현재 난이도에 {config.level + 2}개 이상 필요합니다.
-                  </small>
-                </label>
-              )}
+              <details open={t.id === "spaced-repetition" || undefined}>
+                <summary>고급 설정</summary>
+                {t.variants.length > 0 && (
+                  <label>
+                    훈련 방식
+                    <select
+                      value={config.variant}
+                      onChange={(e) => change({ variant: e.target.value })}
+                    >
+                      {t.variants.map((v) => (
+                        <option value={v.value} key={v.value}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {[
+                  "nback",
+                  "running-span",
+                  "complex-span",
+                  "memory-palace",
+                ].includes(t.id) && (
+                  <label>
+                    자극 제시 간격
+                    <select
+                      value={config.interval}
+                      onChange={(e) =>
+                        change({ interval: Number(e.target.value) })
+                      }
+                    >
+                      {[1000, 1500, 2000, 3000, 5000, 8000].map((ms) => (
+                        <option value={ms} key={ms}>
+                          {ms / 1000}초
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {!["memory-palace", "complex-span"].includes(t.id) && (
+                  <label>
+                    {t.id === "nback"
+                      ? "채점 시행 수"
+                      : t.id === "spaced-repetition"
+                        ? "최대 복습 카드 수"
+                        : "라운드 수"}
+                    <select
+                      value={config.rounds}
+                      onChange={(e) =>
+                        change({ rounds: Number(e.target.value) })
+                      }
+                    >
+                      {(t.id === "nback" || t.id === "spaced-repetition"
+                        ? [10, 20, 30]
+                        : [1, 3, 4, 5]
+                      ).map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {t.id === "memory-palace" && (
+                  <label>
+                    나의 장소 경로 (쉼표로 구분)
+                    <textarea
+                      value={config.locations.join(", ")}
+                      onChange={(e) =>
+                        change({
+                          locations: e.target.value
+                            .split(",")
+                            .map((s) => s.trim())
+                            .slice(0, 12),
+                        })
+                      }
+                    />
+                    <small>
+                      현재 난이도에 {config.level + 2}개 이상 필요합니다.
+                    </small>
+                  </label>
+                )}
+              </details>
               {!locationValid && (
                 <p className="error">
                   장소를 더 입력하거나 난이도를 낮춰주세요.
