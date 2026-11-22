@@ -111,6 +111,26 @@ export const sessionSchema = z
       c.addIssue({ code: "custom", message: "시각 순서 오류" });
   });
 export const cardSchema = z.object({
+  subject: z.string().max(40).optional(),
+  type: z.string().max(40).optional(),
+  contentVersion: z.number().int().positive().optional(),
+  tags: z.array(z.string().max(40)).max(20).optional(),
+  explanation: z.string().max(4000).optional(),
+  hints: z.array(z.string().max(500)).max(20).optional(),
+  alternatives: z.array(z.string().max(1000)).max(5).optional(),
+  expressions: z.array(z.string().max(200)).max(20).optional(),
+  status: z.enum(["active", "archived", "trashed"]).optional(),
+  mastered: z.boolean().optional(),
+  reviews: z
+    .array(
+      z.object({
+        at: z.iso.datetime(),
+        rating: z.enum(["again", "hard", "good"]),
+        hintUsed: z.boolean(),
+        assessment: z.literal("self"),
+      }),
+    )
+    .optional(),
   id: z.string().min(1).max(100),
   deck: z.string().trim().min(1).max(40).optional(),
   question: z.string().min(1).max(1000),

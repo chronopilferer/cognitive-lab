@@ -15,6 +15,15 @@ export function cardsInDeck(cards: Card[], deck?: string) {
 }
 export function reviewCards(cards: Card[], config: Config, today = localDay()) {
   return cardsInDeck(cards, config.deck)
+    .filter(
+      (card) =>
+        (!card.status || card.status === "active") &&
+        (!card.type ||
+          ["memorization", "explanation", "application", "speaking"].includes(
+            card.type,
+          )) &&
+        (card.contentVersion ?? 1) === 1,
+    )
     .filter((card) => config.mode === "practice" || card.due <= today)
     .sort(
       (a, b) =>

@@ -53,7 +53,9 @@ export function Layout() {
             Cognitive Lab<small>인지훈련 실험실</small>
           </span>
         </Link>
-        <p className="nav-label">MY WORKSPACE</p>
+        <Link to="/training/spaced-repetition" className="nav-item">
+          학습 카드 · 오늘 복습
+        </Link>
         <nav aria-label="주 메뉴">
           {links.map(({ path, label, icon: Icon }) => (
             <NavLink
