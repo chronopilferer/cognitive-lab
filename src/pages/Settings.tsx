@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { AccountPanel } from "../shared/components/AccountPanel";
 import { useAuth } from "../app/AuthProvider";
 import { Button } from "../shared/components/Button";
@@ -32,6 +33,7 @@ export function Settings() {
         </div>
       </div>
       <AccountPanel />
+      <Link to="/research">학습 효과와 한계 · 연구 가이드</Link>
       <section className="panel">
         <h2>개발 소스</h2>
         <p className="muted">

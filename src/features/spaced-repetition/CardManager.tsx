@@ -1,4 +1,5 @@
-import { parseStudyPack } from "../../core/training/studyPack";
+import { Link, useSearchParams } from "react-router-dom";
+import { parseStudyPack, studyTypes } from "../../core/training/studyPack";
 import { useRef, useState } from "react";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { useData } from "../../app/DataProvider";
@@ -9,16 +10,34 @@ import {
   deckNames,
   DEFAULT_DECK,
 } from "../../core/training/decks";
+import { isReviewable } from "../../core/training/decks";
 import { localDay, uniqueId } from "../../shared/utils";
 import {
   parseCardText,
   uniqueDrafts,
   type CardDraft,
 } from "../../core/training/cardImport";
+export function CardsPage() {
+  const [params] = useSearchParams();
+  const [deck, setDeck] = useState<string>();
+  const view = params.get("view") === "list" ? "list" : "add";
+  return (
+    <div className="page">
+      <h1>학습 카드</h1>
+      <nav className="button-row wrap">
+        <Link to="/cards?view=add">새 카드 추가</Link>
+        <Link to="/cards?view=list">내 카드 관리</Link>
+      </nav>
+      <CardManager view={view} selectedDeck={deck} onDeckChange={setDeck} />
+    </div>
+  );
+}
 export function CardManager({
+  view,
   selectedDeck,
   onDeckChange,
 }: {
+  view?: "list" | "add";
   selectedDeck?: string;
   onDeckChange?: (deck: string | undefined) => void;
 } = {}) {
@@ -43,6 +62,11 @@ export function CardManager({
   const [filter, setFilter] = useState("all");
   const [limit, setLimit] = useState(30);
   const [subject, setSubject] = useState("");
+  const [cardSubject, setCardSubject] = useState("");
+  const [kind, setKind] = useState("memorization");
+  const [tags, setTags] = useState("");
+  const [hints, setHints] = useState("");
+  const [description, setDescription] = useState("");
   const targetDeck = deck.trim() || DEFAULT_DECK;
   const names = [
     ...new Set([
@@ -63,8 +87,7 @@ export function CardManager({
         (filter === "mastered"
           ? c.mastered
           : (c.status ?? "active") === filter)) &&
-      (!dueOnly ||
-        ((!c.status || c.status === "active") && c.due <= localDay())) &&
+      (!dueOnly || (isReviewable(c) && c.due <= localDay())) &&
       `${c.question} ${c.answer}`
         .toLocaleLowerCase()
         .includes(search.trim().toLocaleLowerCase()),
@@ -83,455 +106,580 @@ export function CardManager({
         <span className="muted">
           {data.cards.length}장 · 오늘 복습{" "}
           {
-            data.cards.filter(
-              (c) =>
-                (!c.status || c.status === "active") && c.due <= localDay(),
-            ).length
+            data.cards.filter((c) => isReviewable(c) && c.due <= localDay())
+              .length
           }
           장
         </span>
       </div>
-      <label>
-        저장할 묶음
-        <input
-          list="card-deck-names"
-          value={deck}
-          maxLength={40}
-          disabled={saving || adding}
-          onChange={(e) => setDeck(e.target.value)}
-          placeholder="예: 자료구조, SQL, 영어 표현"
-        />
-        <datalist id="card-deck-names">
-          {names.map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
-        <small>
-          기존 묶음을 선택하거나 새 이름을 입력하세요. 비워두면 기본 묶음으로
-          저장됩니다.
-        </small>
-      </label>
-      <p className="hint">
-        카드를 추가하면 묶음이 만들어집니다. 기존 카드는 수정에서 묶음을 바꿀 수
-        있고, 마지막 카드를 옮기거나 삭제한 빈 묶음은 목록에서 사라집니다.
-      </p>
-      <details className="bulk-cards">
-        <summary>여러 카드 한 번에 추가</summary>
-        <p className="hint">
-          스프레드시트의 질문·정답 두 열을 복사해 붙여넣으세요. 한 줄에 한 장,
-          두 칸은 탭으로 구분합니다. 최대 200장.
-        </p>
-        <label>
-          카드 붙여넣기
-          <textarea
-            rows={6}
-            value={bulk}
-            maxLength={650000}
-            onChange={(e) => {
-              setBulk(e.target.value);
-              setDrafts(null);
-              setBulkError("");
-            }}
-            placeholder={"질문\t정답 또는 GPT 카드 JSON (formatVersion 1)"}
-          />
-        </label>
-        <div className="button-row wrap">
-          <button
-            className="secondary"
-            disabled={adding}
-            onClick={() => {
+      {(view !== "list" || editing) && (
+        <>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (saveLock.current) return;
+              saveLock.current = true;
+              setSaving(true);
               try {
-                setDrafts(
-                  bulk.trimStart().startsWith("{")
-                    ? parseStudyPack(bulk)
-                    : parseCardText(bulk),
-                );
-                setBulkError("");
-              } catch (e) {
-                setDrafts(null);
-                setBulkError((e as Error).message);
-              }
-            }}
-          >
-            미리보기
-          </button>
-          <button
-            className="ghost"
-            disabled={adding}
-            onClick={() => {
-              setBulk("나만의 질문을 적으세요\t기억하고 싶은 정답을 적으세요");
-              setDrafts(null);
-              setBulkError("");
-            }}
-          >
-            입력 형식 예시
-          </button>
-        </div>
-        {bulkError && <p role="alert">{bulkError}</p>}
-        {drafts && (
-          <div className="bulk-preview">
-            <p role="status">
-              가져올 새 카드 {fresh.length}장 · 같은 묶음의 동일한 질문·정답{" "}
-              {drafts.length - fresh.length}장 제외
-            </p>
-            <ul>
-              {fresh.slice(0, 5).map((c, i) => (
-                <li key={i}>
-                  <small>
-                    {c.subject ?? "미분류"} · {c.deck ?? targetDeck} ·{" "}
-                    {c.type ?? "memorization"}
-                  </small>
-                  <strong>{c.question}</strong>
-                  <p>{c.answer}</p>
-                </li>
-              ))}
-            </ul>
-            {fresh.length > 5 && <p className="hint">앞의 5장만 표시합니다.</p>}
-            <button
-              className="primary"
-              disabled={adding || !fresh.length}
-              onClick={async () => {
-                if (addLock.current) return;
-                addLock.current = true;
-                setAdding(true);
-                try {
-                  if (await act(() => repository.addCards(fresh))) {
-                    onDeckChange?.(fresh[0]?.deck ?? targetDeck);
-                    setBulk("");
-                    setDrafts(null);
-                    setNotice("중복을 제외한 새 카드를 추가했습니다.");
-                  }
-                } finally {
-                  addLock.current = false;
-                  setAdding(false);
-                }
-              }}
-            >
-              확인하고 추가
-            </button>
-          </div>
-        )}
-      </details>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (saveLock.current) return;
-          saveLock.current = true;
-          setSaving(true);
-          try {
-            const previous = data.cards.find((c) => c.id === editing);
-            if (
-              await act(() =>
-                repository.saveCard(
-                  {
-                    ...previous,
-                    id: editing ?? uniqueId(),
-                    deck: targetDeck,
-                    question: question.trim(),
-                    answer: answer.trim(),
-                    due: previous?.due ?? localDay(),
-                    stage: previous?.stage ?? 0,
-                    updatedAt: new Date().toISOString(),
-                  },
-                  editingVersion.current,
-                ),
-              )
-            ) {
-              onDeckChange?.(targetDeck);
-              editingVersion.current = undefined;
-              setQuestion("");
-              setAnswer("");
-              setEditing(null);
-              setNotice("학습 카드를 저장했습니다.");
-            }
-          } finally {
-            saveLock.current = false;
-            setSaving(false);
-          }
-        }}
-      >
-        <div className="form-grid">
-          <label>
-            질문
-            <input
-              required
-              maxLength={1000}
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="예: BFS에서 큐를 사용하는 이유는?"
-            />
-          </label>
-          <label>
-            정답
-            <textarea
-              required
-              maxLength={2000}
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              placeholder="스스로 떠올리고 싶은 답을 적어주세요."
-            />
-          </label>
-        </div>
-        <button
-          className="primary"
-          type="submit"
-          disabled={saving || !question.trim() || !answer.trim()}
-        >
-          <Plus size={16} />
-          {saving ? "저장 중…" : editing ? "수정 저장" : "카드 추가"}
-        </button>
-        {editing && (
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => {
-              setEditing(null);
-              editingVersion.current = undefined;
-              setQuestion("");
-              setAnswer("");
-            }}
-          >
-            취소
-          </button>
-        )}
-      </form>
-      <div className="card-filters">
-        <label>
-          과목
-          <select value={subject} onChange={(e) => setSubject(e.target.value)}>
-            <option value="">전체 과목</option>
-            {Array.from(
-              new Set(data.cards.map((c) => c.subject ?? "미분류")),
-            ).map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          관리 상태
-          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-            {Object.entries({
-              all: "전체",
-              active: "활성",
-              mastered: "숙달",
-              archived: "보관",
-              trashed: "휴지통",
-            }).map(([v, n]) => (
-              <option key={v} value={v}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
-        {onDeckChange && (
-          <label>
-            목록과 훈련의 묶음
-            <select
-              value={selectedDeck ?? ""}
-              onChange={(e) => onDeckChange(e.target.value || undefined)}
-            >
-              <option value="">전체 묶음</option>
-              {names.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <p className="hint">
-          묶음 선택은 위의 훈련 설정에도 적용됩니다. 아래 검색과 오늘 복습
-          필터는 목록만 좁힙니다.
-        </p>
-        <label>
-          카드 검색
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="질문 또는 정답 검색"
-          />
-        </label>
-        <label className="check-label">
-          <input
-            type="checkbox"
-            checked={dueOnly}
-            onChange={(e) => setDueOnly(e.target.checked)}
-          />
-          오늘 복습할 카드만
-        </label>
-        <p className="hint" aria-live="polite">
-          {matches.length}장 표시
-        </p>
-      </div>
-      <details>
-        <summary>카드 일괄 정리 ({selectedCards.length}장 선택)</summary>
-        <button onClick={() => setSelected(matches.map((c) => c.id))}>
-          검색 결과 전체 선택
-        </button>
-        <button onClick={() => setSelected([])}>선택 해제</button>
-        <fieldset disabled={!selectedCards.length}>
-          <legend>선택 카드 관리</legend>
-          <button onClick={() => void bulkUpdate({ status: "archived" })}>
-            선택 보관
-          </button>
-          <button onClick={() => void bulkUpdate({ status: "active" })}>
-            선택 복원
-          </button>
-          <button
-            onClick={() => {
-              if (
-                confirm(
-                  selectedCards.length +
-                    "장을 휴지통으로 옮길까요? 복습 이력은 유지됩니다.",
-                )
-              )
-                void bulkUpdate({ status: "trashed" });
-            }}
-          >
-            선택 휴지통 이동
-          </button>
-          <label>
-            이동할 과목
-            <input
-              maxLength={40}
-              value={moveSubject}
-              onChange={(e) => setMoveSubject(e.target.value)}
-            />
-          </label>
-          <label>
-            이동할 묶음
-            <input
-              maxLength={40}
-              value={moveDeck}
-              onChange={(e) => setMoveDeck(e.target.value)}
-            />
-          </label>
-          <button
-            disabled={!moveSubject.trim() || !moveDeck.trim()}
-            onClick={() =>
-              void bulkUpdate({
-                subject: moveSubject.trim(),
-                deck: moveDeck.trim(),
-              })
-            }
-          >
-            선택 이동
-          </button>
-        </fieldset>
-      </details>
-      <div className="card-library">
-        {matches.length > limit && (
-          <button onClick={() => setLimit(limit + 30)}>30장 더 보기</button>
-        )}
-        {matches.slice(0, limit).map((card) => (
-          <div className="library-row" key={card.id}>
-            <div>
-              <label>
-                <input
-                  type="checkbox"
-                  aria-label={card.question + " 선택"}
-                  checked={selected.includes(card.id)}
-                  onChange={(e) =>
-                    setSelected(
-                      e.target.checked
-                        ? [...selected, card.id]
-                        : selected.filter((id) => id !== card.id),
-                    )
-                  }
-                />
-                <strong>{card.question}</strong>
-              </label>
-              <small>
-                {card.subject ?? "미분류"} · {deckName(card)} · 다음 복습{" "}
-                {card.due} · {card.stage}단계
-              </small>
-            </div>
-            <button
-              onClick={() =>
-                void act(() =>
-                  repository.saveCard(
-                    {
-                      ...card,
-                      mastered: !card.mastered,
-                      updatedAt: new Date().toISOString(),
-                    },
-                    card.updatedAt,
-                  ),
-                )
-              }
-            >
-              {card.mastered ? "숙달 해제" : "숙달 표시"}
-            </button>
-            <button
-              onClick={() =>
-                void act(() =>
-                  repository.saveCard(
-                    {
-                      ...card,
-                      status:
-                        card.status === "archived" || card.status === "trashed"
-                          ? "active"
-                          : "archived",
-                      updatedAt: new Date().toISOString(),
-                    },
-                    card.updatedAt,
-                  ),
-                )
-              }
-            >
-              {card.status === "archived" || card.status === "trashed"
-                ? "복원"
-                : "보관"}
-            </button>
-            <button
-              className="icon-button"
-              aria-label={`${card.question} 수정`}
-              onClick={() => {
-                editingVersion.current = card.updatedAt;
-                setDeck(deckName(card));
-                setEditing(card.id);
-                setQuestion(card.question);
-                setAnswer(card.answer);
-              }}
-            >
-              <Pencil size={16} />
-            </button>
-            <button
-              className="icon-button"
-              aria-label={`${card.question} 삭제`}
-              onClick={() => {
-                if (card.status !== "trashed") {
-                  void act(() =>
+                const previous = data.cards.find((c) => c.id === editing);
+                if (
+                  await act(() =>
                     repository.saveCard(
                       {
-                        ...card,
-                        status: "trashed",
+                        ...previous,
+                        id: editing ?? uniqueId(),
+                        deck: targetDeck,
+                        subject: cardSubject.trim() || "미분류",
+                        type: kind,
+                        contentVersion: previous?.contentVersion ?? 1,
+                        tags: tags
+                          .split(",")
+                          .map((v) => v.trim())
+                          .filter(Boolean),
+                        explanation: description.trim() || undefined,
+                        hints:
+                          kind === "application"
+                            ? hints
+                                .split("\n")
+                                .map((v) => v.trim())
+                                .filter(Boolean)
+                            : previous?.hints,
+                        content: {
+                          ...previous?.content,
+                          ...(kind === "speaking"
+                            ? {
+                                situation: question.trim(),
+                                sampleAnswers: [
+                                  answer.trim(),
+                                  ...(previous?.alternatives ?? []),
+                                ],
+                              }
+                            : {
+                                question: question.trim(),
+                                answer: answer.trim(),
+                                explanation: description.trim() || undefined,
+                                ...(kind === "application"
+                                  ? {
+                                      hints: hints
+                                        .split("\n")
+                                        .map((v) => v.trim())
+                                        .filter(Boolean),
+                                    }
+                                  : {}),
+                              }),
+                        },
+                        question: question.trim(),
+                        answer: answer.trim(),
+                        due: previous?.due ?? localDay(),
+                        stage: previous?.stage ?? 0,
                         updatedAt: new Date().toISOString(),
                       },
-                      card.updatedAt,
+                      editingVersion.current,
                     ),
-                  );
-                  return;
+                  )
+                ) {
+                  onDeckChange?.(targetDeck);
+                  editingVersion.current = undefined;
+                  setQuestion("");
+                  setAnswer("");
+                  setEditing(null);
+                  setDescription("");
+                  setHints("");
+                  setTags("");
+                  setKind("memorization");
+                  setNotice("학습 카드를 저장했습니다.");
                 }
-                if (
-                  confirm("카드 1장과 이 카드의 복습 이력을 영구 삭제할까요?")
-                )
-                  void act(() => repository.deleteCard(card.id));
-              }}
+              } finally {
+                saveLock.current = false;
+                setSaving(false);
+              }
+            }}
+          >
+            <label>
+              과목 이름
+              <input
+                value={cardSubject}
+                maxLength={40}
+                onChange={(e) => setCardSubject(e.target.value)}
+                placeholder="예: 자료구조"
+              />
+            </label>
+            <div className="form-grid">
+              <label>
+                {kind === "speaking" ? "회화 상황" : "질문"}
+                <input
+                  required
+                  maxLength={1000}
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="예: BFS에서 큐를 사용하는 이유는?"
+                />
+              </label>
+              <label>
+                {kind === "speaking" ? "예시 답변" : "정답"}
+                <textarea
+                  required
+                  maxLength={2000}
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  placeholder="스스로 떠올리고 싶은 답을 적어주세요."
+                />
+              </label>
+            </div>
+            <details>
+              <summary>카드 고급 설정</summary>
+              <label>
+                저장할 묶음
+                <input
+                  list="card-deck-names"
+                  value={deck}
+                  maxLength={40}
+                  disabled={saving || adding}
+                  onChange={(e) => setDeck(e.target.value)}
+                  placeholder="예: 자료구조, SQL, 영어 표현"
+                />
+                <datalist id="card-deck-names">
+                  {names.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+                <small>
+                  기존 묶음을 선택하거나 새 이름을 입력하세요. 비워두면 기본
+                  묶음으로 저장됩니다.
+                </small>
+              </label>
+
+              <label>
+                카드 유형
+                <select
+                  disabled={!!editing}
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value)}
+                >
+                  {Object.entries(studyTypes).map(([id, t]) => (
+                    <option value={id} key={id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                태그 (쉼표 구분)
+                <input value={tags} onChange={(e) => setTags(e.target.value)} />
+              </label>
+              {kind === "application" && (
+                <label>
+                  힌트 (한 줄에 하나)
+                  <textarea
+                    value={hints}
+                    onChange={(e) => setHints(e.target.value)}
+                  />
+                </label>
+              )}
+              <label>
+                부가 설명
+                <textarea
+                  maxLength={4000}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </label>
+            </details>
+            <button
+              className="primary"
+              type="submit"
+              disabled={saving || !question.trim() || !answer.trim()}
             >
-              <Trash2 size={16} />
+              <Plus size={16} />
+              {saving ? "저장 중…" : editing ? "수정 저장" : "카드 추가"}
             </button>
-          </div>
-        ))}
-      </div>
-      {!!data.cards.length && !matches.length && (
-        <p className="hint">검색 조건에 맞는 카드가 없습니다.</p>
+            {editing && (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setEditing(null);
+                  setDescription("");
+                  setHints("");
+                  setTags("");
+                  setKind("memorization");
+                  editingVersion.current = undefined;
+                  setQuestion("");
+                  setAnswer("");
+                }}
+              >
+                취소
+              </button>
+            )}
+          </form>
+          <details className="bulk-cards">
+            <summary>여러 카드 한 번에 추가</summary>
+            <p className="hint">
+              카드 JSON이나 스프레드시트의 질문·정답 두 열을 붙여넣으세요. 한
+              줄에 한 장, 두 칸은 탭으로 구분합니다. 최대 200장.
+            </p>
+            <label>
+              카드 붙여넣기
+              <textarea
+                rows={6}
+                value={bulk}
+                maxLength={650000}
+                onChange={(e) => {
+                  setBulk(e.target.value);
+                  setDrafts(null);
+                  setBulkError("");
+                }}
+                placeholder={"질문\t정답 또는 GPT 카드 JSON (formatVersion 1)"}
+              />
+            </label>
+            <div className="button-row wrap">
+              <button
+                className="secondary"
+                disabled={adding}
+                onClick={() => {
+                  try {
+                    setDrafts(
+                      bulk.trimStart().startsWith("{")
+                        ? parseStudyPack(bulk)
+                        : parseCardText(bulk),
+                    );
+                    setBulkError("");
+                  } catch (e) {
+                    setDrafts(null);
+                    setBulkError((e as Error).message);
+                  }
+                }}
+              >
+                미리보기
+              </button>
+              <button
+                className="ghost"
+                disabled={adding}
+                onClick={() => {
+                  setBulk(
+                    "나만의 질문을 적으세요\t기억하고 싶은 정답을 적으세요",
+                  );
+                  setDrafts(null);
+                  setBulkError("");
+                }}
+              >
+                입력 형식 예시
+              </button>
+            </div>
+            {bulkError && <p role="alert">{bulkError}</p>}
+            {drafts && (
+              <div className="bulk-preview">
+                <p role="status">
+                  가져올 새 카드 {fresh.length}장 · 같은 묶음의 동일한 질문·정답{" "}
+                  {drafts.length - fresh.length}장 제외
+                </p>
+                <ul>
+                  {fresh.slice(0, 5).map((c, i) => (
+                    <li key={i}>
+                      <small>
+                        {c.subject ?? "미분류"} · {c.deck ?? targetDeck} ·{" "}
+                        {c.type ?? "memorization"}
+                      </small>
+                      <strong>{c.question}</strong>
+                      <p>{c.answer}</p>
+                    </li>
+                  ))}
+                </ul>
+                {fresh.length > 5 && (
+                  <p className="hint">앞의 5장만 표시합니다.</p>
+                )}
+                <button
+                  className="primary"
+                  disabled={adding || !fresh.length}
+                  onClick={async () => {
+                    if (addLock.current) return;
+                    addLock.current = true;
+                    setAdding(true);
+                    try {
+                      if (await act(() => repository.addCards(fresh))) {
+                        onDeckChange?.(fresh[0]?.deck ?? targetDeck);
+                        setBulk("");
+                        setDrafts(null);
+                        setNotice("중복을 제외한 새 카드를 추가했습니다.");
+                      }
+                    } finally {
+                      addLock.current = false;
+                      setAdding(false);
+                    }
+                  }}
+                >
+                  확인하고 추가
+                </button>
+              </div>
+            )}
+          </details>
+        </>
       )}
-      {!data.cards.length && (
-        <p className="hint">
-          외우고 싶은 개념이나 표현으로 첫 카드를 만들어 보세요.
-        </p>
+      {view !== "add" && (
+        <>
+          <div className="card-filters">
+            <label>
+              과목
+              <select
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+              >
+                <option value="">전체 과목</option>
+                {Array.from(
+                  new Set(data.cards.map((c) => c.subject ?? "미분류")),
+                ).map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              관리 상태
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              >
+                {Object.entries({
+                  all: "전체",
+                  active: "활성",
+                  mastered: "숙달",
+                  archived: "보관",
+                  trashed: "휴지통",
+                }).map(([v, n]) => (
+                  <option key={v} value={v}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {onDeckChange && (
+              <label>
+                목록과 훈련의 묶음
+                <select
+                  value={selectedDeck ?? ""}
+                  onChange={(e) => onDeckChange(e.target.value || undefined)}
+                >
+                  <option value="">전체 묶음</option>
+                  {names.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <p className="hint">
+              묶음을 선택하면 해당 카드만 표시합니다. 검색과 오늘 복습 필터는
+              목록만 좁힙니다.
+            </p>
+            <label>
+              카드 검색
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="질문 또는 정답 검색"
+              />
+            </label>
+            <label className="check-label">
+              <input
+                type="checkbox"
+                checked={dueOnly}
+                onChange={(e) => setDueOnly(e.target.checked)}
+              />
+              오늘 복습할 카드만
+            </label>
+            <p className="hint" aria-live="polite">
+              {matches.length}장 표시
+            </p>
+          </div>
+          <details>
+            <summary>카드 일괄 정리 ({selectedCards.length}장 선택)</summary>
+            <button onClick={() => setSelected(matches.map((c) => c.id))}>
+              검색 결과 전체 선택
+            </button>
+            <button onClick={() => setSelected([])}>선택 해제</button>
+            <fieldset disabled={!selectedCards.length}>
+              <legend>선택 카드 관리</legend>
+              <button onClick={() => void bulkUpdate({ status: "archived" })}>
+                선택 보관
+              </button>
+              <button onClick={() => void bulkUpdate({ status: "active" })}>
+                선택 복원
+              </button>
+              <button
+                onClick={() => {
+                  if (
+                    confirm(
+                      selectedCards.length +
+                        "장을 휴지통으로 옮길까요? 복습 이력은 유지됩니다.",
+                    )
+                  )
+                    void bulkUpdate({ status: "trashed" });
+                }}
+              >
+                선택 휴지통 이동
+              </button>
+              <label>
+                이동할 과목
+                <input
+                  maxLength={40}
+                  value={moveSubject}
+                  onChange={(e) => setMoveSubject(e.target.value)}
+                />
+              </label>
+              <label>
+                이동할 묶음
+                <input
+                  maxLength={40}
+                  value={moveDeck}
+                  onChange={(e) => setMoveDeck(e.target.value)}
+                />
+              </label>
+              <button
+                disabled={!moveSubject.trim() || !moveDeck.trim()}
+                onClick={() =>
+                  void bulkUpdate({
+                    subject: moveSubject.trim(),
+                    deck: moveDeck.trim(),
+                  })
+                }
+              >
+                선택 이동
+              </button>
+            </fieldset>
+          </details>
+          <div className="card-library">
+            {matches.length > limit && (
+              <button onClick={() => setLimit(limit + 30)}>30장 더 보기</button>
+            )}
+            {matches.slice(0, limit).map((card) => (
+              <div className="library-row" key={card.id}>
+                <div>
+                  <label>
+                    <input
+                      type="checkbox"
+                      aria-label={card.question + " 선택"}
+                      checked={selected.includes(card.id)}
+                      onChange={(e) =>
+                        setSelected(
+                          e.target.checked
+                            ? [...selected, card.id]
+                            : selected.filter((id) => id !== card.id),
+                        )
+                      }
+                    />
+                    <strong>{card.question}</strong>
+                  </label>
+                  <small>
+                    {card.subject ?? "미분류"} · {deckName(card)} · 다음 복습{" "}
+                    {card.due} · {card.stage}단계
+                  </small>
+                </div>
+                <details>
+                  <summary>카드 관리</summary>
+                  <button
+                    onClick={() =>
+                      void act(() =>
+                        repository.saveCard(
+                          {
+                            ...card,
+                            mastered: !card.mastered,
+                            updatedAt: new Date().toISOString(),
+                          },
+                          card.updatedAt,
+                        ),
+                      )
+                    }
+                  >
+                    {card.mastered ? "숙달 해제" : "숙달 표시"}
+                  </button>
+                  <button
+                    onClick={() =>
+                      void act(() =>
+                        repository.saveCard(
+                          {
+                            ...card,
+                            status:
+                              card.status === "archived" ||
+                              card.status === "trashed"
+                                ? "active"
+                                : "archived",
+                            updatedAt: new Date().toISOString(),
+                          },
+                          card.updatedAt,
+                        ),
+                      )
+                    }
+                  >
+                    {card.status === "archived" || card.status === "trashed"
+                      ? "복원"
+                      : "보관"}
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label={`${card.question} 수정`}
+                    onClick={() => {
+                      editingVersion.current = card.updatedAt;
+                      setDeck(deckName(card));
+                      setCardSubject(card.subject ?? "");
+                      setKind(card.type ?? "memorization");
+                      setTags((card.tags ?? []).join(", "));
+                      setDescription(card.explanation ?? "");
+                      setHints((card.hints ?? []).join("\n"));
+                      setEditing(card.id);
+                      requestAnimationFrame(() =>
+                        document
+                          .querySelector<HTMLInputElement>(
+                            ".card-manager form input",
+                          )
+                          ?.focus(),
+                      );
+                      setQuestion(card.question);
+                      setAnswer(card.answer);
+                    }}
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label={`${card.question} ${card.status === "trashed" ? "영구 삭제" : "휴지통 이동"}`}
+                    onClick={() => {
+                      if (card.status !== "trashed") {
+                        void act(() =>
+                          repository.saveCard(
+                            {
+                              ...card,
+                              status: "trashed",
+                              updatedAt: new Date().toISOString(),
+                            },
+                            card.updatedAt,
+                          ),
+                        );
+                        return;
+                      }
+                      if (
+                        confirm(
+                          "카드 1장과 이 카드의 복습 이력을 영구 삭제할까요?",
+                        )
+                      )
+                        void act(() => repository.deleteCard(card.id));
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </details>
+              </div>
+            ))}
+          </div>
+          {!!data.cards.length && !matches.length && (
+            <p className="hint">검색 조건에 맞는 카드가 없습니다.</p>
+          )}
+          {!data.cards.length && (
+            <p className="hint">
+              외우고 싶은 개념이나 표현으로 첫 카드를 만들어 보세요.
+            </p>
+          )}
+        </>
       )}
     </section>
   );

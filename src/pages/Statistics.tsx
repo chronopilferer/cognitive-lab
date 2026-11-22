@@ -10,7 +10,11 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Trash2, ChartNoAxesCombined } from "lucide-react";
-import { registry } from "../core/training/registry";
+import {
+  StudyProgress,
+  studyProgress,
+} from "../features/spaced-repetition/StudyProgress";
+import { optionalTraining, registry } from "../core/training/registry";
 import { accuracy, pct, conditionKey } from "../core/training/scoring";
 import { useData } from "../app/DataProvider";
 import { repository } from "../infrastructure/storage/repository";
@@ -53,8 +57,10 @@ export function Statistics() {
           <p>다른 사람 대신, 같은 조건에서의 지난 나와 비교하세요.</p>
         </div>
       </div>
+      <StudyProgress progress={studyProgress(data.cards)} detailed />
+      <h2>선택 훈련 기록</h2>
       <div className="filter-tabs">
-        {registry.map((t) => (
+        {optionalTraining.map((t) => (
           <button
             key={t.id}
             className={id === t.id ? "selected" : ""}
@@ -67,6 +73,24 @@ export function Statistics() {
           </button>
         ))}
       </div>
+      <details>
+        <summary>추가 도구와 이전 훈련 기록</summary>
+        <div className="button-row wrap">
+          {registry
+            .filter((t) => !optionalTraining.includes(t))
+            .map((t) => (
+              <button
+                key={t.id}
+                onClick={() => {
+                  setId(t.id);
+                  setCondition("");
+                }}
+              >
+                {t.name}
+              </button>
+            ))}
+        </div>
+      </details>
       <section className="panel">
         <div className="section-title">
           <div>
