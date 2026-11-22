@@ -1,3 +1,4 @@
+import { studyTypes } from "../../core/training/studyPack";
 import { useRef, useState } from "react";
 import type { GameProps } from "../../core/training/types";
 import { useData } from "../../app/DataProvider";
@@ -14,7 +15,10 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
   const [busy, setBusy] = useState(false);
   const remembered = useRef(0);
   const locked = useRef(false);
+  const [hint, setHint] = useState(0);
   const card = cards[index];
+  const behavior =
+    studyTypes[(card?.type ?? "memorization") as keyof typeof studyTypes];
   async function rate(rating: "again" | "hard" | "good") {
     if (locked.current) return;
     locked.current = true;
@@ -22,7 +26,21 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
     if (
       c.mode === "training" &&
       !(await act(() =>
-        repository.saveCard(scheduleCard(card, rating), card.updatedAt),
+        repository.saveCard(
+          {
+            ...scheduleCard(card, rating),
+            reviews: [
+              ...(card.reviews ?? []),
+              {
+                rating,
+                at: new Date().toISOString(),
+                hintUsed: hint > 0,
+                assessment: "self",
+              },
+            ],
+          },
+          card.updatedAt,
+        ),
       ))
     ) {
       locked.current = false;
@@ -40,6 +58,7 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
     }
     setIndex((i) => i + 1);
     setRevealed(false);
+    setHint(0);
     setWritten("");
     locked.current = false;
     setBusy(false);
@@ -75,9 +94,9 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
         </label>
       )}
       <div className="flashcard">
-        <span className="eyebrow">먼저 스스로 떠올려 보세요</span>
+        <span className="eyebrow">{behavior?.prompt}</span>
         <h2>{card.question}</h2>
-        {writeMode && (
+        {(writeMode || card.type === "explanation") && (
           <label className="written-recall">
             내가 떠올린 답
             <textarea
@@ -90,8 +109,29 @@ export function RepetitionGame({ config: c, onComplete }: GameProps) {
             <small>이번 카드에서만 표시하며 저장·자동 채점하지 않습니다.</small>
           </label>
         )}
+        {!revealed && card.type === "application" && !!card.hints?.length && (
+          <div>
+            {card.hints.slice(0, hint).map((h, i) => (
+              <p key={i}>{h}</p>
+            ))}
+            {hint < card.hints.length && (
+              <button onClick={() => setHint(hint + 1)}>다음 힌트</button>
+            )}
+          </div>
+        )}
         {revealed ? (
-          <div className="revealed-answer">{card.answer}</div>
+          <div className="revealed-answer">
+            {card.answer}
+            {[
+              ...(card.alternatives ?? []),
+              ...(card.expressions ?? []),
+              card.explanation,
+            ]
+              .filter(Boolean)
+              .map((v, i) => (
+                <p key={i}>{v}</p>
+              ))}
+          </div>
         ) : (
           <button className="primary" onClick={() => setRevealed(true)}>
             정답 확인

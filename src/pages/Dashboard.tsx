@@ -22,7 +22,9 @@ export function Dashboard() {
   const { data } = useData();
   const stats = overview(data.sessions);
   const valid = validSessions(data.sessions);
-  const due = data.cards.filter((c) => c.due <= localDay()).length;
+  const due = data.cards.filter(
+    (c) => (!c.status || c.status === "active") && c.due <= localDay(),
+  ).length;
   const recent = [...valid].sort((a, b) =>
     b.completedAt.localeCompare(a.completedAt),
   )[0];

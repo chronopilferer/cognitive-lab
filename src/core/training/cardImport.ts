@@ -1,9 +1,19 @@
 import { deckName } from "./decks";
 
 export interface CardDraft {
+  subject?: string;
+  type?: string;
   deck?: string;
   question: string;
   answer: string;
+  contentVersion?: number;
+  content?: Record<string, unknown>;
+  extensions?: Record<string, unknown>;
+  tags?: string[];
+  explanation?: string;
+  hints?: string[];
+  alternatives?: string[];
+  expressions?: string[];
 }
 export function parseCardText(text: string): CardDraft[] {
   const rows = text
@@ -27,7 +37,13 @@ export function parseCardText(text: string): CardDraft[] {
 }
 export function uniqueDrafts(drafts: CardDraft[], existing: CardDraft[]) {
   const key = (c: CardDraft) =>
-    JSON.stringify([deckName(c), c.question.trim(), c.answer.trim()]);
+    JSON.stringify([
+      c.subject ?? "미분류",
+      c.type ?? "memorization",
+      deckName(c),
+      c.question.trim(),
+      c.answer.trim(),
+    ]);
   const seen = new Set(existing.map(key));
   return drafts.filter((c) => {
     const k = key(c);

@@ -119,6 +119,27 @@ export class LocalStorageRepository implements Repository {
       };
     });
   }
+  updateCardGroup(
+    cards: Card[],
+    patch: Pick<Partial<Card>, "status" | "subject" | "deck" | "mastered">,
+  ) {
+    const versions = new Map(cards.map((c) => [c.id, c.updatedAt]));
+    return this.mutate((data) => {
+      const selected = data.cards.filter((c) => versions.has(c.id));
+      if (
+        selected.length !== versions.size ||
+        selected.some((c) => versions.get(c.id) !== c.updatedAt)
+      )
+        throw Error("선택한 카드가 변경되었습니다. 목록을 새로 확인하세요.");
+      const updatedAt = new Date().toISOString();
+      return {
+        ...data,
+        cards: data.cards.map((c) =>
+          versions.has(c.id) ? { ...c, ...patch, updatedAt } : c,
+        ),
+      };
+    });
+  }
   deleteCard(id: string) {
     return this.mutate((d) => ({
       ...d,
@@ -176,7 +197,7 @@ export class AccountRepository extends LocalStorageRepository {
         "온라인 기록을 불러오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.",
       );
     return {
-      data: data ? validateData(data.payload) : emptyData(),
+      data: data ? migrate(data.payload) : emptyData(),
       revision: data?.revision ?? 0,
     };
   }
