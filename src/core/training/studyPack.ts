@@ -54,7 +54,15 @@ const cardEnvelope = z
     content: z.unknown(),
     tags: strings(40).optional(),
   })
-  .passthrough();
+  .passthrough()
+  .superRefine((card, context) => {
+    const reserved = ["id", "due", "stage", "reviews", "status", "mastered", "updatedAt"];
+    if (reserved.some((key) => key in card))
+      context.addIssue({
+        code: "custom",
+        message: "복습 상태와 식별자는 가져오기 파일에서 지정할 수 없습니다.",
+      });
+  });
 
 const envelope = z
   .object({
