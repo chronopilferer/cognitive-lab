@@ -197,7 +197,7 @@ export class AccountRepository extends LocalStorageRepository {
         "온라인 기록을 불러오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.",
       );
     return {
-      data: data ? validateData(data.payload) : emptyData(),
+      data: data ? migrate(data.payload) : emptyData(),
       revision: data?.revision ?? 0,
     };
   }
