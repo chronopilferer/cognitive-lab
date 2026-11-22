@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import { parseStudyPack } from "../core/training/studyPack";
 import { reviewCards } from "../core/training/decks";
 import { LocalStorageRepository } from "../infrastructure/storage/repository";
+import { migrate } from "../infrastructure/storage/schema";
 import { registry } from "../core/training/registry";
 const source = {
   subject: "자료구조",
@@ -33,6 +34,36 @@ it("validates the entire pack before insertion and rejects caller-supplied progr
     )[0].question,
   ).toBe("영화 추천");
 });
+it("preserves future fields without allowing imported progress", () => {
+  const [card] = parseStudyPack(
+    pack([
+      {
+        ...source,
+        futureMeta: { source: "gpt" },
+        content: {
+          ...source.content,
+          futureField: { difficultyReason: "rotation" },
+        },
+      },
+    ]),
+  );
+  expect(card.content.futureField).toEqual({ difficultyReason: "rotation" });
+  expect(card.extensions.futureMeta).toEqual({ source: "gpt" });
+  expect(() => parseStudyPack(pack([{ ...source, stage: 7 }]))).toThrow();
+});
+
+it("drops v1 cards while preserving sessions and settings", () => {
+  const migrated = migrate({
+    schemaVersion: 1,
+    sessions: [],
+    cards: [{ id: "legacy-card" }],
+    settings: { theme: "light", configs: {} },
+  });
+  expect(migrated.schemaVersion).toBe(2);
+  expect(migrated.cards).toEqual([]);
+  expect(migrated.settings.theme).toBe("light");
+});
+
 it("preserves content, ID and schedule across archive, restore and JSON backup", async () => {
   localStorage.clear();
   const repo = new LocalStorageRepository();
