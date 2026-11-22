@@ -111,6 +111,8 @@ export const sessionSchema = z
       c.addIssue({ code: "custom", message: "시각 순서 오류" });
   });
 export const cardSchema = z.object({
+  content: z.record(z.string(), z.unknown()).optional(),
+  extensions: z.record(z.string(), z.unknown()).optional(),
   subject: z.string().max(40).optional(),
   type: z.string().max(40).optional(),
   contentVersion: z.number().int().positive().optional(),
@@ -141,7 +143,7 @@ export const cardSchema = z.object({
 });
 export const dataSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     sessions: z.array(sessionSchema).max(5000),
     cards: z.array(cardSchema).max(2000),
     settings: z.object({
@@ -167,12 +169,34 @@ export type Card = z.infer<typeof cardSchema>;
 export function validateData(raw: unknown): Data {
   return dataSchema.parse(raw);
 }
-/** v1 is the initial schema. Unknown versions are rejected, never silently downgraded. */
+const legacyDataSchema = z.object({
+  schemaVersion: z.literal(1),
+  sessions: z.array(sessionSchema).max(5000),
+  cards: z.array(z.unknown()).max(2000),
+  settings: z.object({
+    theme: z.enum(["light", "dark"]),
+    configs: z.record(z.string(), configSchema),
+  }),
+});
+
+/**
+ * v1 카드는 의도적으로 폐기한다. 훈련 기록과 설정만 v2로 옮긴다.
+ * 알 수 없는 버전은 조용히 변환하지 않고 거부한다.
+ */
 export function migrate(raw: unknown): Data {
-  return validateData(raw);
+  const current = dataSchema.safeParse(raw);
+  if (current.success) return current.data;
+  const legacy = legacyDataSchema.safeParse(raw);
+  if (!legacy.success) throw current.error;
+  return validateData({
+    schemaVersion: 2,
+    sessions: legacy.data.sessions,
+    cards: [],
+    settings: legacy.data.settings,
+  });
 }
 export const emptyData = (): Data => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
   sessions: [],
   cards: [],
   settings: { theme: "light", configs: {} },
