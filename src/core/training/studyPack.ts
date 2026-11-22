@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { CardDraft } from "./cardImport";
 
 const line = (n: number) => z.string().trim().min(1).max(n);
 const strings = (n: number) => z.array(line(n)).max(20);
@@ -71,7 +72,7 @@ const envelope = z
   })
   .passthrough();
 
-export function parseStudyPack(text: string) {
+export function parseStudyPack(text: string): CardDraft[] {
   let json: unknown;
   try {
     json = JSON.parse(text);
@@ -104,27 +105,29 @@ export function parseStudyPack(text: string) {
         ([key]) => !["subject", "deck", "type", "contentVersion", "tags"].includes(key),
       ),
     );
-    const value = result.data;
+    const value = result.data as Record<string, unknown>;
 
-    if ("situation" in value)
+    if (meta.type === "speaking") {
+      const sampleAnswers = value.sampleAnswers as string[];
       return {
         ...knownMeta,
         content: value,
         extensions,
-        question: value.situation,
-        answer: value.sampleAnswers[0],
-        alternatives: value.sampleAnswers.slice(1),
-        expressions: value.expressions,
+        question: value.situation as string,
+        answer: sampleAnswers[0],
+        alternatives: sampleAnswers.slice(1),
+        expressions: value.expressions as string[] | undefined,
       };
+    }
 
     return {
       ...knownMeta,
       content: value,
       extensions,
-      question: value.question,
-      answer: value.answer,
-      explanation: value.explanation,
-      hints: "hints" in value ? value.hints : undefined,
+      question: value.question as string,
+      answer: value.answer as string,
+      explanation: value.explanation as string | undefined,
+      hints: value.hints as string[] | undefined,
     };
   });
 }
