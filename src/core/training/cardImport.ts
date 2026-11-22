@@ -6,6 +6,14 @@ export interface CardDraft {
   deck?: string;
   question: string;
   answer: string;
+  contentVersion?: number;
+  content?: Record<string, unknown>;
+  extensions?: Record<string, unknown>;
+  tags?: string[];
+  explanation?: string;
+  hints?: string[];
+  alternatives?: string[];
+  expressions?: string[];
 }
 export function parseCardText(text: string): CardDraft[] {
   const rows = text
