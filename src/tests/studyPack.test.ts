@@ -47,8 +47,8 @@ it("preserves future fields without allowing imported progress", () => {
       },
     ]),
   );
-  expect(card.content.futureField).toEqual({ difficultyReason: "rotation" });
-  expect(card.extensions.futureMeta).toEqual({ source: "gpt" });
+  expect(card.content?.futureField).toEqual({ difficultyReason: "rotation" });
+  expect(card.extensions?.futureMeta).toEqual({ source: "gpt" });
   expect(() => parseStudyPack(pack([{ ...source, stage: 7 }]))).toThrow();
 });
 
